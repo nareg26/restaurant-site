@@ -10,12 +10,21 @@ import {
   type MarkKind,
   type Slot,
 } from "@/lib/prefs-config";
-import { SHARED, getOrCreateId, store, type PrefRow } from "@/lib/prefs-store";
+import {
+  SHARED,
+  getLastId,
+  parseId,
+  rememberLastId,
+  store,
+  type PrefRow,
+} from "@/lib/prefs-store";
 import Results from "./Results";
 import styles from "./preferences.module.css";
 
 export default function Preferences() {
   const [tab, setTab] = useState<"form" | "results">("form");
+  const [personId, setPersonId] = useState("");
+  const [lookupMsg, setLookupMsg] = useState("");
   const [name, setName] = useState("");
   const [marks, setMarks] = useState<Partial<Record<string, MarkKind>>>({});
   const [points, setPoints] = useState<Partial<Record<string, number>>>({});
@@ -26,8 +35,12 @@ export default function Preferences() {
   const [rows, setRows] = useState<PrefRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
 
-  const idRef = useRef<string | null>(null);
+  const idRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const loadedFor = useRef<number | null>(null); // ID whose saved answers are on screen
+  const loadedMsg = useRef(""); // the message that goes with it
+
+  const idNum = parseId(personId);
 
   const spent = Object.entries(points).reduce(
     (sum, [id, p]) => (marks[id] === "want" ? sum + (p || 0) : sum),
@@ -45,22 +58,59 @@ export default function Preferences() {
     }
   }, []);
 
+  /* prefill the ID last used on this device, purely as a convenience */
   useEffect(() => {
-    const id = getOrCreateId();
-    idRef.current = id;
-    store
-      .getMine(id)
-      .then((mine) => {
-        if (!mine) return;
-        setName(mine.name);
-        setMarks(mine.marks);
-        setPoints(mine.points);
-        setNotes(mine.notes);
-        setSaved(true);
-        setStatusMsg("Your saved answers are loaded.");
-      })
-      .catch((e) => console.error(e));
+    setPersonId(getLastId());
   }, []);
+
+  /* Entering an ID pulls up that person's saved answers, from any device. */
+  useEffect(() => {
+    if (idNum === null) {
+      setLookupMsg(personId.trim() ? "IDs are numbers — check the one you were given." : "");
+      return;
+    }
+    if (loadedFor.current === idNum) {
+      setLookupMsg(loadedMsg.current); // already showing this person; drop any stale warning
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const mine = await store.getMine(idNum);
+        if (cancelled) return;
+        const previous = loadedFor.current;
+        loadedFor.current = idNum;
+        if (mine) {
+          setName(mine.name);
+          setMarks(mine.marks);
+          setPoints(mine.points);
+          setNotes(mine.notes);
+          setSaved(true);
+          loadedMsg.current = `Loaded saved answers for #${idNum}${mine.name ? ` — ${mine.name}` : ""}.`;
+          setLookupMsg(loadedMsg.current);
+          setStatusMsg("");
+        } else {
+          // Never let one person's answers get saved under another's ID.
+          if (previous !== null && previous !== idNum) {
+            setName("");
+            setMarks({});
+            setPoints({});
+            setNotes("");
+          }
+          setSaved(false);
+          loadedMsg.current = `#${idNum} hasn’t answered yet — fill this in and save.`;
+          setLookupMsg(loadedMsg.current);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setLookupMsg("Couldn’t check that ID just now.");
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [idNum, personId]);
 
   /* results stay fresh while that tab is open */
   useEffect(() => {
@@ -92,23 +142,39 @@ export default function Preferences() {
 
   const bump = (slotId: string, delta: number) => {
     if (marks[slotId] !== "want") return;
-    const cur = points[slotId] || 0;
-    const next = Math.max(0, Math.min(PER_SLOT_MAX, cur + delta));
-    if (spent - cur + next > WANT_BUDGET) return;
-    setPoints({ ...points, [slotId]: next });
+    // Read the running total inside the updater so rapid clicks don't each
+    // act on the same stale value and lose increments.
+    setPoints((prev) => {
+      const cur = prev[slotId] || 0;
+      const next = Math.max(0, Math.min(PER_SLOT_MAX, cur + delta));
+      const prevSpent = Object.entries(prev).reduce(
+        (sum, [id, p]) => (marks[id] === "want" ? sum + (p || 0) : sum),
+        0
+      );
+      if (prevSpent - cur + next > WANT_BUDGET) return prev;
+      return { ...prev, [slotId]: next };
+    });
   };
 
   const save = async () => {
+    if (idNum === null) {
+      setStatusMsg("Enter the ID number you were given.");
+      idRef.current?.focus();
+      return;
+    }
     if (!name.trim()) {
       setStatusMsg("Add your name first so the schedule can be built.");
       nameRef.current?.focus();
       return;
     }
-    if (!idRef.current) return;
     setSaving(true);
     setStatusMsg("Saving…");
     try {
-      await store.upsert({ id: idRef.current, name: name.trim(), marks, points, notes });
+      await store.upsert({ id: idNum, name: name.trim(), marks, points, notes });
+      rememberLastId(idNum);
+      loadedFor.current = idNum;
+      loadedMsg.current = `These answers are saved under #${idNum} — ${name.trim()}.`;
+      setLookupMsg(loadedMsg.current);
       setSaved(true);
       setStatusMsg(
         SHARED
@@ -218,18 +284,38 @@ export default function Preferences() {
         {tab === "form" ? (
           <section role="tabpanel">
             <div className={styles.namebar}>
-              <label className={styles.label} htmlFor="pref-name">
-                Your name
-              </label>
-              <input
-                ref={nameRef}
-                id="pref-name"
-                type="text"
-                autoComplete="given-name"
-                placeholder="e.g. Nur"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <div className={styles.whoRow}>
+                <div className={styles.idField}>
+                  <label className={styles.label} htmlFor="pref-id">
+                    Your ID
+                  </label>
+                  <input
+                    ref={idRef}
+                    id="pref-id"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="e.g. 7"
+                    value={personId}
+                    onChange={(e) => setPersonId(e.target.value.replace(/[^\d]/g, ""))}
+                  />
+                </div>
+                <div className={styles.nameField}>
+                  <label className={styles.label} htmlFor="pref-name">
+                    Your name
+                  </label>
+                  <input
+                    ref={nameRef}
+                    id="pref-name"
+                    type="text"
+                    autoComplete="given-name"
+                    placeholder="e.g. Nur"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              </div>
+              {lookupMsg && <p className={styles.lookup}>{lookupMsg}</p>}
             </div>
 
             <div className={styles.meter}>

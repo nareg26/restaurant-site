@@ -109,6 +109,22 @@
 .namebar {
   margin: 1.5rem 0 0;
 }
+.whoRow {
+  display: flex;
+  gap: 0.7rem;
+}
+.idField {
+  flex: 0 0 7rem;
+}
+.nameField {
+  flex: 1;
+  min-width: 0;
+}
+.lookup {
+  margin: 0.45rem 0 0;
+  font-size: 0.85rem;
+  color: var(--soft);
+}
 .label {
   display: block;
   font-weight: 600;

@@ -13,7 +13,8 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 export const SHARED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 export type PrefRow = {
-  id: string;
+  /** The number handed out to each person — their identity across devices. */
+  id: number;
   name: string;
   marks: Partial<Record<string, MarkKind>>;
   points: Partial<Record<string, number>>;
@@ -21,30 +22,38 @@ export type PrefRow = {
 };
 
 export interface PrefsStore {
-  getMine(id: string): Promise<PrefRow | null>;
+  getMine(id: number): Promise<PrefRow | null>;
   upsert(row: PrefRow): Promise<void>;
   listAll(): Promise<PrefRow[]>;
 }
 
-/* ---------- anonymous per-browser identity ---------- */
+/* ---------- ID handling ---------- */
 
-export function getOrCreateId(): string {
-  let id: string | null = null;
+/** Up to 9 digits, so the value always fits Postgres' int4. */
+export const parseId = (raw: string): number | null =>
+  /^\d{1,9}$/.test(raw.trim()) ? Number(raw.trim()) : null;
+
+/* The last ID used on this device, so people don't retype it every visit.
+   It's a convenience only — the ID in the field is what identifies them. */
+const LAST_ID_KEY = "shiftprefs-last-id";
+
+export function getLastId(): string {
   try {
-    id = localStorage.getItem("shiftprefs-id");
-  } catch {}
-  if (!id) {
-    id = crypto.randomUUID();
-    try {
-      localStorage.setItem("shiftprefs-id", id);
-    } catch {}
+    return localStorage.getItem(LAST_ID_KEY) ?? "";
+  } catch {
+    return "";
   }
-  return id;
+}
+
+export function rememberLastId(id: number) {
+  try {
+    localStorage.setItem(LAST_ID_KEY, String(id));
+  } catch {}
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const normalize = (v: any): PrefRow => ({
-  id: String(v.id),
+  id: Number(v.id),
   name: (v.name ?? "").toString(),
   marks: v.marks && typeof v.marks === "object" ? v.marks : {},
   points: v.points && typeof v.points === "object" ? v.points : {},
@@ -76,7 +85,7 @@ export const localPrefsStore: PrefsStore = {
     } catch {}
   },
   async listAll() {
-    return readAll();
+    return readAll().sort((a, b) => a.id - b.id);
   },
 };
 
@@ -116,7 +125,7 @@ export const remotePrefsStore: PrefsStore = {
   },
   async listAll() {
     const r = await check(
-      await fetch(`${restUrl}?select=id,name,marks,points,notes`, { headers })
+      await fetch(`${restUrl}?select=id,name,marks,points,notes&order=id.asc`, { headers })
     );
     return ((await r.json()) as unknown[]).map(normalize);
   },

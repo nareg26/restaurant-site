@@ -54,12 +54,13 @@ create policy "public update" on shifts for update using (true);
 create policy "public delete" on shifts for delete using (true);
 ```
 
-4. Also create the table behind `/staff/preferences` (each browser owns one
-   anonymous row, keyed by an id kept in localStorage):
+4. Also create the table behind `/staff/preferences`. `id` is the number you
+   hand out to each person — they type it in, and their name, marks, points
+   and notes are stored against it, so they can answer from any device:
 
 ```sql
 create table if not exists shift_prefs (
-  id         uuid primary key,
+  id         integer primary key,   -- the number handed out to each person
   name       text not null default '',
   marks      jsonb not null default '{}',
   points     jsonb not null default '{}',
@@ -75,6 +76,10 @@ create policy "public update" on shift_prefs for update using (true);
 
 The days/slots being voted on live in `src/lib/prefs-config.ts` — edit that
 file when a new round of open shifts comes up.
+
+> **On IDs:** there is no authentication. Anyone who knows a number can view
+> and overwrite that person's answers, so hand out numbers that aren't trivially
+> guessable if that matters to you.
 
 > **Note on the anon key:** it is designed to be public (it ships to every
 > browser), so having it in `.env.local` / deploy settings is fine. What

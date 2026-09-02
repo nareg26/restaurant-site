@@ -95,7 +95,9 @@ export default function Results({
             <tbody>
               {extras.map((r) => (
                 <tr key={r.id}>
-                  <td>{r.name}</td>
+                  <td>
+                    #{r.id} {r.name}
+                  </td>
                   <td>{r.notes.trim()}</td>
                 </tr>
               ))}
