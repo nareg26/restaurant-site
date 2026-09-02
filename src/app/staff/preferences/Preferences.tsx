@@ -32,6 +32,7 @@ export default function Preferences() {
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(false); // a lookup for this ID is in flight
   const [statusMsg, setStatusMsg] = useState("");
   const [rows, setRows] = useState<PublicPrefRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -67,13 +68,17 @@ export default function Preferences() {
   /* Entering an ID pulls up that person's saved answers, from any device. */
   useEffect(() => {
     if (idNum === null) {
+      setChecking(false);
       setLookupMsg(personId.trim() ? "IDs are numbers — check the one you were given." : "");
       return;
     }
     if (loadedFor.current === idNum) {
+      setChecking(false);
       setLookupMsg(loadedMsg.current); // already showing this person; drop any stale warning
       return;
     }
+    // Saving before this finishes would write a blank form over their answers.
+    setChecking(true);
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
@@ -107,6 +112,8 @@ export default function Preferences() {
       } catch (e) {
         console.error(e);
         if (!cancelled) setLookupMsg("Couldn’t check that ID just now.");
+      } finally {
+        if (!cancelled) setChecking(false);
       }
     }, 450);
     return () => {
@@ -163,6 +170,11 @@ export default function Preferences() {
     if (idNum === null) {
       setStatusMsg("Enter the ID number you were given.");
       idRef.current?.focus();
+      return;
+    }
+    if (checking) {
+      // Their saved answers are still loading; saving now would blank them.
+      setStatusMsg("Just a second — still checking that ID.");
       return;
     }
     if (!name.trim()) {
@@ -393,7 +405,7 @@ export default function Preferences() {
             </div>
 
             <div className={styles.save}>
-              <button onClick={save} disabled={saving}>
+              <button onClick={save} disabled={saving || checking}>
                 {saved ? "Update my preferences" : "Save my preferences"}
               </button>
               <span className={styles.status}>{statusMsg || defaultStatus}</span>

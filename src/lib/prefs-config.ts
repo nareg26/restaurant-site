@@ -17,11 +17,13 @@ export const DAYS: Day[] = [
 ];
 
 export const SLOTS: Slot[] = [
+  { id: "mon-m", day: "mon", label: "10–15h", dur: "5h", need: 1, note: "overlaps 14–17h" },
   { id: "mon-a", day: "mon", label: "14–17h", dur: "3h", need: 1 },
   { id: "mon-b", day: "mon", label: "17–20h", dur: "3h", need: 1 },
   { id: "tue-a", day: "tue", label: "14–17h", dur: "3h", need: 1 },
   { id: "tue-c", day: "tue", label: "15–20h", dur: "5h", need: 1, note: "overlaps the other two" },
   { id: "tue-b", day: "tue", label: "17–20h", dur: "3h", need: 1 },
+  { id: "wed-m", day: "wed", label: "10–15h", dur: "5h", need: 1, note: "overlaps 14–17h" },
   { id: "wed-a", day: "wed", label: "14–17h", dur: "3h", need: 1 },
   { id: "wed-b", day: "wed", label: "17–20h", dur: "3h", need: 1 },
   { id: "thu-a", day: "thu", label: "14–17h", dur: "3h", need: 1 },
