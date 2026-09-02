@@ -251,7 +251,8 @@ export default function Preferences() {
           <h1>Which open shifts do you want?</h1>
           <p>
             Mark every shift below, then spend your {WANT_BUDGET} points on the ones you
-            most want. Two minutes. You can change your answers any time.
+            most want. It should take a few minutes. You can change your answers any time
+            and re-submit.
           </p>
         </header>
 
