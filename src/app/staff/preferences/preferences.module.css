@@ -1,0 +1,456 @@
+.page {
+  --paper: #eff1e8;
+  --card: #fbfcf7;
+  --ink: #1b2116;
+  --soft: #5a6650;
+  --line: #d5dac8;
+  --line-strong: #b9c1a6;
+  --olive: #4c7a1e;
+  --olive-bg: #e2edd2;
+  --blue: #286b99;
+  --blue-bg: #dceaf4;
+  --sumac: #9b3a24;
+  --sumac-bg: #f3ded8;
+  --mute: #767f6c;
+  --mute-bg: #e4e7dd;
+
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+@media (prefers-color-scheme: dark) {
+  .page {
+    --paper: #16190f;
+    --card: #1e2218;
+    --ink: #e9ede0;
+    --soft: #a3ac96;
+    --line: #333a28;
+    --line-strong: #454e37;
+    --olive: #9dc85d;
+    --olive-bg: #2a3a17;
+    --blue: #7ab4dc;
+    --blue-bg: #17303f;
+    --sumac: #de8368;
+    --sumac-bg: #3d1f16;
+    --mute: #8c9481;
+    --mute-bg: #282d20;
+  }
+}
+.page * {
+  box-sizing: border-box;
+}
+.wrap {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.75rem 1rem 5rem;
+}
+
+.header h1 {
+  font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(1.85rem, 6vw, 2.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.45rem;
+}
+.header p {
+  margin: 0 0 1.1rem;
+  color: var(--soft);
+  max-width: 34rem;
+}
+
+.banner {
+  background: var(--sumac-bg);
+  color: var(--sumac);
+  border: 1px solid var(--sumac);
+  border-radius: 6px;
+  padding: 0.7rem 0.85rem;
+  margin: 0 0 1.2rem;
+  font-size: 0.9rem;
+}
+.banner code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--line);
+  margin: 1.5rem 0 0;
+}
+.tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--soft);
+  padding: 0.5rem 0.7rem;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--olive);
+}
+.tab:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.namebar {
+  margin: 1.5rem 0 0;
+}
+.label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+.page input[type="text"],
+.page textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+}
+.page input[type="text"]:focus,
+.page textarea:focus {
+  outline: 2px solid var(--olive);
+  outline-offset: 1px;
+  border-color: var(--olive);
+}
+.page textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.meter {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  margin: 1.4rem -1rem 0;
+  padding: 0.7rem 1rem;
+}
+.gauge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--olive);
+}
+.dots {
+  display: flex;
+  gap: 3px;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+.dot.on {
+  background: currentColor;
+}
+.gauge .txt {
+  color: var(--soft);
+}
+.gauge b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.day {
+  margin: 1.9rem 0 0;
+}
+.day h2 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 500;
+  font-size: 1.25rem;
+  margin: 0 0 0.55rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--line-strong);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.day h2 span {
+  font-family: var(--font-archivo), sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--soft);
+}
+
+.slot {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.65rem 0.7rem;
+  margin-bottom: 0.5rem;
+}
+.slotTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.slotTime {
+  font-weight: 600;
+}
+.slotTime .dur {
+  font-weight: 400;
+  color: var(--soft);
+  font-size: 0.85em;
+}
+.slotNote {
+  font-size: 0.75rem;
+  color: var(--soft);
+  text-align: right;
+}
+
+.seg {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.seg button {
+  appearance: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.42rem 0.2rem;
+  border-radius: 5px;
+  cursor: pointer;
+  background: var(--mute-bg);
+  border: 1px solid transparent;
+  color: var(--soft);
+}
+.seg button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.seg button[aria-pressed="true"] {
+  font-weight: 700;
+}
+.seg button.want[aria-pressed="true"] {
+  background: var(--olive-bg);
+  color: var(--olive);
+  border-color: var(--olive);
+}
+.seg button.fine[aria-pressed="true"] {
+  background: var(--blue-bg);
+  color: var(--blue);
+  border-color: var(--blue);
+}
+.seg button.no[aria-pressed="true"] {
+  background: var(--sumac-bg);
+  color: var(--sumac);
+  border-color: var(--sumac);
+}
+.seg button.cant[aria-pressed="true"] {
+  background: var(--mute-bg);
+  color: var(--ink);
+  border-color: var(--mute);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  font-size: 0.83rem;
+  color: var(--soft);
+}
+.stepper button {
+  appearance: none;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stepper button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.stepper .val {
+  min-width: 1.1rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.qbox {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.9rem;
+  margin-top: 1.9rem;
+}
+
+.save {
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  margin: 1.6rem -1rem 0;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.save > button {
+  appearance: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--ink);
+  border: 0;
+  border-radius: 6px;
+  padding: 0.65rem 1.15rem;
+  cursor: pointer;
+}
+.save > button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.save > button:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 2px;
+}
+.save .status {
+  font-size: 0.85rem;
+  color: var(--soft);
+}
+
+.callout {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--olive);
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+  margin: 1.4rem 0;
+}
+.callout h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+.callout ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--soft);
+  font-size: 0.9rem;
+}
+.rslot {
+  border-bottom: 1px solid var(--line);
+  padding: 0.7rem 0;
+}
+.rslotHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.rslotTime {
+  font-weight: 600;
+}
+.cover {
+  font-size: 0.8rem;
+  color: var(--soft);
+  white-space: nowrap;
+}
+.cover.thin {
+  color: var(--sumac);
+  font-weight: 600;
+}
+.names {
+  margin: 0.4rem 0 0;
+  font-size: 0.87rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.chip {
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: var(--mute-bg);
+  color: var(--soft);
+}
+.chip.want {
+  background: var(--olive-bg);
+  color: var(--olive);
+  font-weight: 600;
+}
+.chip.fine {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+.chip.no {
+  background: var(--sumac-bg);
+  color: var(--sumac);
+}
+.chip.cant {
+  background: var(--mute-bg);
+  color: var(--mute);
+  text-decoration: line-through;
+}
+.empty {
+  color: var(--soft);
+  padding: 2rem 0;
+}
+.who {
+  font-size: 0.87rem;
+  color: var(--soft);
+  margin: 0.3rem 0 0;
+  padding-top: 1rem;
+}
+.scroll {
+  overflow-x: auto;
+}
+.scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.87rem;
+  margin-top: 1rem;
+}
+.scroll th,
+.scroll td {
+  text-align: left;
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.scroll th {
+  color: var(--soft);
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .save > button,
+  .seg button {
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+}

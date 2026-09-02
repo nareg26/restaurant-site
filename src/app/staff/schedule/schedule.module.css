@@ -1,0 +1,422 @@
+.page {
+  --bg: #f6f5f2;
+  --card: #fff;
+  --ink: #1f2328;
+  --muted: #6b7280;
+  --line: #e6e3dd;
+
+  /* status — green means someone is assigned, red means the slot is open */
+  --filled: #0f766e;
+  --filled-bg: #eefaf7;
+  --filled-line: #b3e0d7;
+  --empty: #c2410c;
+  --empty-bg: #fff4ec;
+  --empty-line: #f3c9ae;
+
+  --accent: #1d4ed8;
+  --accent-bg: #eef2ff;
+
+  margin: 0;
+  padding: 28px 20px 60px;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+    Helvetica, Arial, sans-serif;
+}
+.page * {
+  box-sizing: border-box;
+}
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.top h1 {
+  font-size: 24px;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.toolbar button,
+.footer button,
+.formActions button {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.toolbar button:hover,
+.footer button:hover,
+.formActions button:hover {
+  background: #f1efeb;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.primary:hover {
+  background: #1e40af;
+}
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.weekLabel {
+  font-size: 14px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+.spacer {
+  flex: 1;
+}
+
+.statuskey {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.statuskey i {
+  font-style: normal;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+}
+.hint {
+  font-size: 12px;
+}
+.swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 5px;
+  display: inline-block;
+}
+.swatchF {
+  background: var(--filled-bg);
+  border: 1px solid var(--filled-line);
+}
+.swatchE {
+  background: var(--empty-bg);
+  border: 1px solid var(--empty-line);
+}
+
+/* ---- calendar board ---- */
+.boardScroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.board {
+  display: flex;
+  gap: 6px;
+  min-width: 960px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gutter {
+  flex: none;
+  width: 52px;
+}
+.gutterHead {
+  height: 46px;
+}
+.gutterBody {
+  position: relative;
+}
+.hourLabel {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--muted);
+}
+.daycol {
+  flex-basis: 0;
+  min-width: 132px;
+}
+.dayhead {
+  height: 38px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.dayhead strong {
+  font-size: 13px;
+}
+.dayhead em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.dayheadToday {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.dayheadToday strong {
+  color: var(--accent);
+}
+.daybody {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--line) 0,
+    var(--line) 1px,
+    transparent 1px,
+    transparent 48px
+  );
+  background-position: 0 -1px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* ---- shift cards ---- */
+.card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--ink);
+  cursor: pointer;
+  touch-action: none;
+}
+.cardFilled {
+  background: var(--filled-bg);
+  border-color: var(--filled-line);
+}
+.cardEmpty {
+  background: var(--empty-bg);
+  border-color: var(--empty-line);
+}
+.cardDragged {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  z-index: 3;
+}
+.card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+.cardBody {
+  flex: 1;
+  padding: 4px 7px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+.cardTitle {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cardPerson {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cardEmpty .cardPerson {
+  color: var(--empty);
+  font-style: italic;
+}
+.cardFilled .cardPerson {
+  color: var(--filled);
+}
+.cardTime {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.handle {
+  flex: none;
+  height: 7px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.handleTop {
+  border-top: 2px solid transparent;
+}
+.handleBottom {
+  border-bottom: 2px solid transparent;
+}
+.card:hover .handleTop {
+  border-top-color: rgba(0, 0, 0, 0.22);
+}
+.card:hover .handleBottom {
+  border-bottom-color: rgba(0, 0, 0, 0.22);
+}
+
+.ghost {
+  position: absolute;
+  left: 0;
+  width: calc(100% - 3px);
+  border: 1.5px dashed var(--accent);
+  background: var(--accent-bg);
+  border-radius: 8px;
+  z-index: 4;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* ---- new-shift popover ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 35, 40, 0.28);
+  display: grid;
+  place-items: center;
+  z-index: 10;
+  padding: 20px;
+}
+.popover {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+.popover h2 {
+  margin: 0 0 2px;
+  font-size: 16px;
+}
+.formRow {
+  display: flex;
+  gap: 8px;
+}
+.formRow input,
+.formRow select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fcfcfb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  flex: 1;
+  min-width: 0;
+}
+.emojiInput {
+  flex: none !important;
+  width: 52px;
+  text-align: center;
+}
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ---- footer / status ---- */
+.footer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.countOpen {
+  color: var(--empty);
+  font-weight: 600;
+}
+.countDone {
+  color: var(--filled);
+  font-weight: 600;
+}
+.status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+.dotOk {
+  background: #16a34a;
+}
+.dotBusy {
+  background: #eab308;
+}
+.dotErr {
+  background: #dc2626;
+}
+.banner {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #78350f;
+  border-radius: 11px;
+  padding: 11px 14px;
+  margin-bottom: 16px;
+  font-size: 13.5px;
+}
+.banner code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+@media print {
+  .page {
+    background: #fff;
+    padding: 0;
+  }
+  .footer,
+  .banner,
+  .toolbar button,
+  .hint {
+    display: none;
+  }
+  .boardScroll {
+    overflow-x: visible;
+  }
+  .page * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

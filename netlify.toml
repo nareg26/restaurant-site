@@ -1,0 +1,6 @@
+[build]
+  command = "npm run build"
+
+[build.environment]
+  # Next.js 16 needs a modern Node; pin it so builds don't drift.
+  NODE_VERSION = "22"
