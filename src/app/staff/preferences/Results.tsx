@@ -41,7 +41,12 @@ export default function Results({
     return { slot, groups, available };
   });
 
-  const extras = rows.filter((r) => r.notes.trim());
+  /* Total hours people are asking for, so it can be weighed against what the
+     week actually needs. null when nobody answered the question. */
+  const stated = rows.filter((r) => r.hours_per_week !== null);
+  const totalHours = stated.length
+    ? stated.reduce((sum, r) => sum + (r.hours_per_week ?? 0), 0)
+    : null;
 
   return (
     <>
@@ -83,28 +88,39 @@ export default function Results({
         ))}
       </div>
 
-      {extras.length > 0 && (
-        <div className={styles.scroll}>
-          <table>
-            <thead>
-              <tr>
-                <th></th>
-                <th>Notes</th>
+      <div className={styles.scroll}>
+        <table>
+          <thead>
+            <tr>
+              <th>Who</th>
+              <th>Hours/week</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>
+                  #{r.id} {r.name}
+                </td>
+                <td>{r.hours_per_week === null ? "—" : r.hours_per_week}</td>
+                <td>{r.notes.trim() || "—"}</td>
               </tr>
-            </thead>
-            <tbody>
-              {extras.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    #{r.id} {r.name}
-                  </td>
-                  <td>{r.notes.trim()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+            {totalHours !== null && (
+              <tr>
+                <td>
+                  <b>Total</b>
+                </td>
+                <td>
+                  <b>{totalHours}</b>
+                </td>
+                <td />
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

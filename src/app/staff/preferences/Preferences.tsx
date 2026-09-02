@@ -26,6 +26,7 @@ export default function Preferences() {
   const [personId, setPersonId] = useState("");
   const [lookupMsg, setLookupMsg] = useState("");
   const [name, setName] = useState("");
+  const [hours, setHours] = useState("");
   const [marks, setMarks] = useState<Partial<Record<string, MarkKind>>>({});
   const [points, setPoints] = useState<Partial<Record<string, number>>>({});
   const [notes, setNotes] = useState("");
@@ -82,6 +83,7 @@ export default function Preferences() {
         loadedFor.current = idNum;
         if (mine) {
           setName(mine.name);
+          setHours(mine.hours_per_week === null ? "" : String(mine.hours_per_week));
           setMarks(mine.marks);
           setPoints(mine.points);
           setNotes(mine.notes);
@@ -93,6 +95,7 @@ export default function Preferences() {
           // Never let one person's answers get saved under another's ID.
           if (previous !== null && previous !== idNum) {
             setName("");
+            setHours("");
             setMarks({});
             setPoints({});
             setNotes("");
@@ -170,7 +173,14 @@ export default function Preferences() {
     setSaving(true);
     setStatusMsg("Saving…");
     try {
-      await store.upsert({ id: idNum, name: name.trim(), marks, points, notes });
+      await store.upsert({
+        id: idNum,
+        name: name.trim(),
+        hours_per_week: hours.trim() === "" ? null : Number(hours),
+        marks,
+        points,
+        notes,
+      });
       rememberLastId(idNum);
       loadedFor.current = idNum;
       loadedMsg.current = `These answers are saved under #${idNum} — ${name.trim()}.`;
@@ -317,6 +327,27 @@ export default function Preferences() {
                 </div>
               </div>
               {lookupMsg && <p className={styles.lookup}>{lookupMsg}</p>}
+
+              <div className={styles.hoursField}>
+                <label className={styles.label} htmlFor="pref-hours">
+                  How many hours do you want to work per week, ideally?
+                </label>
+                <div className={styles.hoursInput}>
+                  <input
+                    id="pref-hours"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="e.g. 20"
+                    value={hours}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
+                      setHours(digits);
+                    }}
+                  />
+                  <span>hours per week</span>
+                </div>
+              </div>
             </div>
 
             <div className={styles.meter}>

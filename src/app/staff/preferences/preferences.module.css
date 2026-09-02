@@ -125,6 +125,22 @@
   font-size: 0.85rem;
   color: var(--soft);
 }
+.hoursField {
+  margin-top: 1.1rem;
+}
+.hoursInput {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.hoursInput input {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+}
+.hoursInput span {
+  font-size: 0.88rem;
+  color: var(--soft);
+}
 .label {
   display: block;
   font-weight: 600;

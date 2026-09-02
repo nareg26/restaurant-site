@@ -16,6 +16,8 @@ export type PrefRow = {
   /** The number handed out to each person — their identity across devices. */
   id: number;
   name: string;
+  /** Ideal hours per week. null = they didn't say. */
+  hours_per_week: number | null;
   marks: Partial<Record<string, MarkKind>>;
   points: Partial<Record<string, number>>;
   notes: string;
@@ -55,6 +57,10 @@ export function rememberLastId(id: number) {
 const normalize = (v: any): PrefRow => ({
   id: Number(v.id),
   name: (v.name ?? "").toString(),
+  hours_per_week:
+    v.hours_per_week === null || v.hours_per_week === undefined || v.hours_per_week === ""
+      ? null
+      : Number(v.hours_per_week),
   marks: v.marks && typeof v.marks === "object" ? v.marks : {},
   points: v.points && typeof v.points === "object" ? v.points : {},
   notes: (v.notes ?? "").toString(),
@@ -107,7 +113,7 @@ export const remotePrefsStore: PrefsStore = {
   async getMine(id) {
     const r = await check(
       await fetch(
-        `${restUrl}?select=id,name,marks,points,notes&id=eq.${encodeURIComponent(id)}&limit=1`,
+        `${restUrl}?select=id,name,hours_per_week,marks,points,notes&id=eq.${encodeURIComponent(id)}&limit=1`,
         { headers }
       )
     );
@@ -125,7 +131,7 @@ export const remotePrefsStore: PrefsStore = {
   },
   async listAll() {
     const r = await check(
-      await fetch(`${restUrl}?select=id,name,marks,points,notes&order=id.asc`, { headers })
+      await fetch(`${restUrl}?select=id,name,hours_per_week,marks,points,notes&order=id.asc`, { headers })
     );
     return ((await r.json()) as unknown[]).map(normalize);
   },
