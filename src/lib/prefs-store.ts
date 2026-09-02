@@ -23,10 +23,15 @@ export type PrefRow = {
   notes: string;
 };
 
+/* Everyone's answers as shown on the results tab. IDs are deliberately left
+   out: they're the only thing needed to open someone's answers, so they never
+   travel to a browser that isn't their owner's. */
+export type PublicPrefRow = Omit<PrefRow, "id">;
+
 export interface PrefsStore {
   getMine(id: number): Promise<PrefRow | null>;
   upsert(row: PrefRow): Promise<void>;
-  listAll(): Promise<PrefRow[]>;
+  listAll(): Promise<PublicPrefRow[]>;
 }
 
 /* ---------- ID handling ---------- */
@@ -65,6 +70,12 @@ const normalize = (v: any): PrefRow => ({
   points: v.points && typeof v.points === "object" ? v.points : {},
   notes: (v.notes ?? "").toString(),
 });
+
+const normalizePublic = (v: any): PublicPrefRow => {
+  const { id: _id, ...rest } = normalize(v);
+  void _id;
+  return rest;
+};
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* ---------- localStorage backend ---------- */
@@ -91,7 +102,9 @@ export const localPrefsStore: PrefsStore = {
     } catch {}
   },
   async listAll() {
-    return readAll().sort((a, b) => a.id - b.id);
+    return readAll()
+      .sort((a, b) => a.id - b.id)
+      .map(normalizePublic);
   },
 };
 
@@ -130,10 +143,13 @@ export const remotePrefsStore: PrefsStore = {
     );
   },
   async listAll() {
+    // No id in the select, so IDs never reach a browser other than their owner's.
     const r = await check(
-      await fetch(`${restUrl}?select=id,name,hours_per_week,marks,points,notes&order=id.asc`, { headers })
+      await fetch(`${restUrl}?select=name,hours_per_week,marks,points,notes&order=id.asc`, {
+        headers,
+      })
     );
-    return ((await r.json()) as unknown[]).map(normalize);
+    return ((await r.json()) as unknown[]).map(normalizePublic);
   },
 };
 

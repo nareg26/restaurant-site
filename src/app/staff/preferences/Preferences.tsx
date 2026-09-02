@@ -16,7 +16,7 @@ import {
   parseId,
   rememberLastId,
   store,
-  type PrefRow,
+  type PublicPrefRow,
 } from "@/lib/prefs-store";
 import Results from "./Results";
 import styles from "./preferences.module.css";
@@ -33,7 +33,7 @@ export default function Preferences() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
-  const [rows, setRows] = useState<PrefRow[] | null>(null);
+  const [rows, setRows] = useState<PublicPrefRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   const idRef = useRef<HTMLInputElement>(null);

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { DAYS, MARKS, SLOTS, type Slot } from "@/lib/prefs-config";
-import type { PrefRow } from "@/lib/prefs-store";
+import type { PublicPrefRow } from "@/lib/prefs-store";
 import styles from "./preferences.module.css";
 
 const label = (slot: Slot) => {
@@ -14,7 +14,7 @@ export default function Results({
   rows,
   loadError,
 }: {
-  rows: PrefRow[] | null;
+  rows: PublicPrefRow[] | null;
   loadError: boolean;
 }) {
   if (loadError) return <p className={styles.who}>Couldn’t load responses — see the README’s Supabase setup.</p>;
@@ -98,11 +98,11 @@ export default function Results({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>
-                  #{r.id} {r.name}
-                </td>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                {/* Never render the ID here: it's the only credential someone
+                    needs to open and overwrite that person's answers. */}
+                <td>{r.name}</td>
                 <td>{r.hours_per_week === null ? "—" : r.hours_per_week}</td>
                 <td>{r.notes.trim() || "—"}</td>
               </tr>
