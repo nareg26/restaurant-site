@@ -217,7 +217,10 @@ export default function Preferences() {
           <span className={styles.slotTime}>
             {time} <span className={styles.dur}>({slotDur(slot)})</span>
           </span>
-          {slot.note && <span className={styles.slotNote}>{slot.note}</span>}
+          <span className={styles.slotNote}>
+            {slot.need} {slot.need === 1 ? "person" : "people"} needed
+            {slot.note && ` · ${slot.note}`}
+          </span>
         </div>
         <div className={styles.seg}>
           {MARKS.map((m) => (
@@ -348,12 +351,7 @@ export default function Preferences() {
                 const name = dayLabel(day);
                 return (
                   <div key={day} className={styles.day}>
-                    <h2>
-                      {name}
-                      <span>
-                        {mine.length === 1 ? "1 shift open" : `${mine.length} shifts open`}
-                      </span>
-                    </h2>
+                    <h2>{name}</h2>
                     {mine.map((slot) => renderSlot(slot, name))}
                   </div>
                 );
