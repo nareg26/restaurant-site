@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { MARKS, PER_SLOT_MAX, WANT_BUDGET, type MarkKind } from "@/lib/prefs-config";
 import {
-  DAYS,
-  MARKS,
-  PER_SLOT_MAX,
-  SLOTS,
-  WANT_BUDGET,
-  type MarkKind,
-  type Slot,
-} from "@/lib/prefs-config";
+  dayLabel,
+  rangeLabel,
+  slotDur,
+  slotLabel,
+  slotsStore,
+  type PrefSlot,
+} from "@/lib/prefs-slots";
 import {
   SHARED,
   getLastId,
@@ -36,6 +36,7 @@ export default function Preferences() {
   const [statusMsg, setStatusMsg] = useState("");
   const [rows, setRows] = useState<PublicPrefRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [slots, setSlots] = useState<PrefSlot[] | null>(null);
 
   const idRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -63,6 +64,18 @@ export default function Preferences() {
   /* prefill the ID last used on this device, purely as a convenience */
   useEffect(() => {
     setPersonId(getLastId());
+  }, []);
+
+  /* the shifts being voted on this round, set up in /admin/preferences */
+  useEffect(() => {
+    slotsStore
+      .list()
+      .then(setSlots)
+      .catch((e) => {
+        console.error(e);
+        setSlots([]);
+        setLoadError(true);
+      });
   }, []);
 
   /* Entering an ID pulls up that person's saved answers, from any device. */
@@ -212,17 +225,20 @@ export default function Preferences() {
     }
   };
 
+  const allSlots = slots ?? [];
+  const days = [...new Set(allSlots.map((s) => s.day))].sort();
   const markedCount = Object.keys(marks).length;
-  const defaultStatus = `${markedCount} of ${SLOTS.length} shifts marked`;
+  const defaultStatus = `${markedCount} of ${allSlots.length} shifts marked`;
 
-  const renderSlot = (slot: Slot, dayLabel: string) => {
+  const renderSlot = (slot: PrefSlot, dayName: string) => {
     const mark = marks[slot.id];
     const pts = points[slot.id] || 0;
+    const time = slotLabel(slot);
     return (
       <div key={slot.id} className={styles.slot}>
         <div className={styles.slotTop}>
           <span className={styles.slotTime}>
-            {slot.label} <span className={styles.dur}>({slot.dur})</span>
+            {time} <span className={styles.dur}>({slotDur(slot)})</span>
           </span>
           {slot.note && <span className={styles.slotNote}>{slot.note}</span>}
         </div>
@@ -233,7 +249,7 @@ export default function Preferences() {
               type="button"
               className={styles[m.k]}
               aria-pressed={mark === m.k}
-              aria-label={`${m.label}, ${dayLabel} ${slot.label}`}
+              aria-label={`${m.label}, ${dayName} ${time}`}
               onClick={() => setMark(slot.id, m.k)}
             >
               {m.label}
@@ -245,7 +261,7 @@ export default function Preferences() {
             <button
               type="button"
               disabled={pts === 0}
-              aria-label={`Spend one point fewer on ${dayLabel} ${slot.label}`}
+              aria-label={`Spend one point fewer on ${dayName} ${time}`}
               onClick={() => bump(slot.id, -1)}
             >
               −
@@ -254,7 +270,7 @@ export default function Preferences() {
             <button
               type="button"
               disabled={left === 0 || pts === PER_SLOT_MAX}
-              aria-label={`Spend one more point on ${dayLabel} ${slot.label}`}
+              aria-label={`Spend one more point on ${dayName} ${time}`}
               onClick={() => bump(slot.id, 1)}
             >
               +
@@ -270,7 +286,10 @@ export default function Preferences() {
     <div className={styles.page}>
       <div className={styles.wrap}>
         <header className={styles.header}>
-          <h1>Which open shifts do you want?</h1>
+          <h1>
+            Which open shifts do you want?
+            {allSlots.length > 0 && <span className={styles.range}>{rangeLabel(allSlots)}</span>}
+          </h1>
           <p>
             Mark every shift below, then spend your {WANT_BUDGET} points on the ones you
             most want. It should take a few minutes. You can change your answers any time
@@ -376,17 +395,25 @@ export default function Preferences() {
             </div>
 
             <div>
-              {DAYS.map((day) => {
-                const mine = SLOTS.filter((s) => s.day === day.id);
+              {slots === null && <p className={styles.lookup}>Loading this week’s shifts…</p>}
+              {slots !== null && slots.length === 0 && (
+                <p className={styles.empty}>
+                  No shifts have been set up for this round yet. Check back once they’ve been
+                  added.
+                </p>
+              )}
+              {days.map((day) => {
+                const mine = allSlots.filter((s) => s.day === day);
+                const name = dayLabel(day);
                 return (
-                  <div key={day.id} className={styles.day}>
+                  <div key={day} className={styles.day}>
                     <h2>
-                      {day.label}
+                      {name}
                       <span>
                         {mine.length === 1 ? "1 shift open" : `${mine.length} shifts open`}
                       </span>
                     </h2>
-                    {mine.map((slot) => renderSlot(slot, day.label))}
+                    {mine.map((slot) => renderSlot(slot, name))}
                   </div>
                 );
               })}
@@ -413,7 +440,7 @@ export default function Preferences() {
           </section>
         ) : (
           <section role="tabpanel">
-            <Results rows={rows} loadError={loadError} />
+            <Results rows={rows} slots={allSlots} loadError={loadError} />
           </section>
         )}
       </div>

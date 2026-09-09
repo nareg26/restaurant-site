@@ -32,6 +32,10 @@ export interface PrefsStore {
   getMine(id: number): Promise<PrefRow | null>;
   upsert(row: PrefRow): Promise<void>;
   listAll(): Promise<PublicPrefRow[]>;
+  /** Deletes every response. Used by /admin/preferences to start a new week. */
+  clearAll(): Promise<void>;
+  /** How many responses exist, so the admin page can say what it's about to delete. */
+  count(): Promise<number>;
 }
 
 /* ---------- ID handling ---------- */
@@ -101,6 +105,14 @@ export const localPrefsStore: PrefsStore = {
       localStorage.setItem(LOCAL_KEY, JSON.stringify([...rest, row]));
     } catch {}
   },
+  async clearAll() {
+    try {
+      localStorage.removeItem(LOCAL_KEY);
+    } catch {}
+  },
+  async count() {
+    return readAll().length;
+  },
   async listAll() {
     return readAll()
       .sort((a, b) => a.id - b.id)
@@ -141,6 +153,16 @@ export const remotePrefsStore: PrefsStore = {
         body: JSON.stringify([{ ...row, updated_at: new Date().toISOString() }]),
       })
     );
+  },
+  async clearAll() {
+    // PostgREST needs a filter; every id is a positive integer.
+    await check(await fetch(`${restUrl}?id=gte.0`, { method: "DELETE", headers }));
+  },
+  async count() {
+    const r = await check(
+      await fetch(`${restUrl}?select=id`, { headers: { ...headers, Prefer: "count=exact" } })
+    );
+    return ((await r.json()) as unknown[]).length;
   },
   async listAll() {
     // No id in the select, so IDs never reach a browser other than their owner's.

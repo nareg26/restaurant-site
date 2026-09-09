@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, Fraunces } from "next/font/google";
-import Preferences from "./Preferences";
+import AdminPreferences from "./AdminPreferences";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -14,15 +14,14 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  // The dates live in the data now, so they're shown under the heading rather
-  // than baked into the title.
-  title: "Open shifts",
+  title: "Set up the week",
+  robots: { index: false, follow: false },
 };
 
-export default function PreferencesPage() {
+export default function AdminPreferencesPage() {
   return (
     <div className={`${archivo.variable} ${fraunces.variable}`}>
-      <Preferences />
+      <AdminPreferences />
     </div>
   );
 }

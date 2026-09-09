@@ -1,20 +1,21 @@
 "use client";
 
 import React from "react";
-import { DAYS, MARKS, SLOTS, type Slot } from "@/lib/prefs-config";
+import { MARKS } from "@/lib/prefs-config";
+import { dayShort, slotDur, slotLabel, type PrefSlot } from "@/lib/prefs-slots";
 import type { PublicPrefRow } from "@/lib/prefs-store";
 import styles from "./preferences.module.css";
 
-const label = (slot: Slot) => {
-  const day = DAYS.find((d) => d.id === slot.day)!;
-  return `${day.short} ${slot.label} (${slot.dur})`;
-};
+const label = (slot: PrefSlot) =>
+  `${dayShort(slot.day)} ${slotLabel(slot)} (${slotDur(slot)})`;
 
 export default function Results({
   rows,
+  slots,
   loadError,
 }: {
   rows: PublicPrefRow[] | null;
+  slots: PrefSlot[];
   loadError: boolean;
 }) {
   if (loadError) return <p className={styles.who}>Couldn’t load responses — see the README’s Supabase setup.</p>;
@@ -28,7 +29,7 @@ export default function Results({
 
   /* per-slot marks, and the slots that don't have enough people yet */
   const thin: string[] = [];
-  const slotGroups = SLOTS.map((slot) => {
+  const slotGroups = slots.map((slot) => {
     const groups: Record<string, string[]> = { want: [], fine: [], no: [], cant: [] };
     for (const r of rows) {
       const m = r.marks[slot.id];

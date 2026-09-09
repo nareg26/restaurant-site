@@ -1,0 +1,264 @@
+.page {
+  --paper: #eff1e8;
+  --card: #fbfcf7;
+  --ink: #1b2116;
+  --soft: #5a6650;
+  --line: #d5dac8;
+  --line-strong: #b9c1a6;
+  --olive: #4c7a1e;
+  --olive-bg: #e2edd2;
+  --sumac: #9b3a24;
+  --sumac-bg: #f3ded8;
+
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  .page {
+    --paper: #16190f;
+    --card: #1e2218;
+    --ink: #e9ede0;
+    --soft: #a3ac96;
+    --line: #333a28;
+    --line-strong: #454e37;
+    --olive: #9dc85d;
+    --olive-bg: #2a3a17;
+    --sumac: #de8368;
+    --sumac-bg: #3d1f16;
+  }
+}
+.page * {
+  box-sizing: border-box;
+}
+.wrap {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.75rem 1rem 5rem;
+}
+
+.header h1 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+  line-height: 1.1;
+  margin: 0 0 0.4rem;
+}
+.header p {
+  margin: 0 0 1.2rem;
+  color: var(--soft);
+  max-width: 36rem;
+}
+.header a {
+  color: var(--olive);
+}
+
+.banner {
+  background: var(--sumac-bg);
+  color: var(--sumac);
+  border: 1px solid var(--sumac);
+  border-radius: 6px;
+  padding: 0.7rem 0.85rem;
+  margin: 0 0 1.2rem;
+  font-size: 0.9rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem 1.05rem 1.1rem;
+  margin-bottom: 1.4rem;
+}
+.card h2 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 500;
+  font-size: 1.15rem;
+  margin: 0 0 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.count {
+  font-family: var(--font-archivo), sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--soft);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--soft);
+  margin-bottom: 0.7rem;
+}
+.page input,
+.page select {
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  width: 100%;
+  min-width: 0;
+}
+.page input:focus,
+.page select:focus {
+  outline: 2px solid var(--olive);
+  outline-offset: 1px;
+  border-color: var(--olive);
+}
+
+.weekRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.7rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.weekRow .field {
+  flex: 0 0 12rem;
+  margin-bottom: 0;
+}
+.hint {
+  flex: 1;
+  min-width: 12rem;
+  font-size: 0.78rem;
+  color: var(--soft);
+  padding-bottom: 0.5rem;
+}
+
+.addRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 0.6rem;
+}
+@media (max-width: 620px) {
+  .addRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.warn {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--sumac);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+.page button {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+.page button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.primary {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  border-color: var(--ink) !important;
+}
+.status {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--soft);
+}
+.status[data-kind="err"] {
+  color: var(--sumac);
+}
+.status[data-kind="ok"] {
+  color: var(--olive);
+}
+
+.dayGroup {
+  margin-bottom: 0.9rem;
+}
+.dayGroup h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--soft);
+}
+.slotRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92rem;
+}
+.slotTime {
+  font-weight: 600;
+  flex: 0 0 9rem;
+}
+.dur {
+  font-weight: 400;
+  color: var(--soft);
+  font-size: 0.85em;
+}
+.slotNeed {
+  flex: 0 0 5.5rem;
+  color: var(--soft);
+  font-size: 0.85rem;
+}
+.slotNote {
+  flex: 1;
+  min-width: 0;
+  color: var(--soft);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.remove {
+  flex: none;
+  font-size: 0.8rem !important;
+  padding: 0.25rem 0.6rem !important;
+  color: var(--sumac) !important;
+  border-color: var(--line) !important;
+}
+.remove:hover {
+  border-color: var(--sumac) !important;
+}
+
+.muted {
+  color: var(--soft);
+  font-size: 0.86rem;
+  margin: 0.5rem 0 0;
+}
+
+.danger {
+  border-color: var(--sumac);
+}
+.dangerBtn {
+  background: var(--sumac-bg) !important;
+  color: var(--sumac) !important;
+  border-color: var(--sumac) !important;
+}
