@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { MARKS, PER_SLOT_MAX, WANT_BUDGET, type MarkKind } from "@/lib/prefs-config";
+import { MARKS, type MarkKind } from "@/lib/prefs-config";
 import {
   dayLabel,
   rangeLabel,
@@ -44,12 +44,6 @@ export default function Preferences() {
   const loadedMsg = useRef(""); // the message that goes with it
 
   const idNum = parseId(personId);
-
-  const spent = Object.entries(points).reduce(
-    (sum, [id, p]) => (marks[id] === "want" ? sum + (p || 0) : sum),
-    0
-  );
-  const left = WANT_BUDGET - spent;
 
   const fetchAll = useCallback(async () => {
     try {
@@ -163,22 +157,6 @@ export default function Preferences() {
     }
   };
 
-  const bump = (slotId: string, delta: number) => {
-    if (marks[slotId] !== "want") return;
-    // Read the running total inside the updater so rapid clicks don't each
-    // act on the same stale value and lose increments.
-    setPoints((prev) => {
-      const cur = prev[slotId] || 0;
-      const next = Math.max(0, Math.min(PER_SLOT_MAX, cur + delta));
-      const prevSpent = Object.entries(prev).reduce(
-        (sum, [id, p]) => (marks[id] === "want" ? sum + (p || 0) : sum),
-        0
-      );
-      if (prevSpent - cur + next > WANT_BUDGET) return prev;
-      return { ...prev, [slotId]: next };
-    });
-  };
-
   const save = async () => {
     if (idNum === null) {
       setStatusMsg("Enter the ID number you were given.");
@@ -232,7 +210,6 @@ export default function Preferences() {
 
   const renderSlot = (slot: PrefSlot, dayName: string) => {
     const mark = marks[slot.id];
-    const pts = points[slot.id] || 0;
     const time = slotLabel(slot);
     return (
       <div key={slot.id} className={styles.slot}>
@@ -256,28 +233,6 @@ export default function Preferences() {
             </button>
           ))}
         </div>
-        {mark === "want" && (
-          <div className={styles.stepper}>
-            <button
-              type="button"
-              disabled={pts === 0}
-              aria-label={`Spend one point fewer on ${dayName} ${time}`}
-              onClick={() => bump(slot.id, -1)}
-            >
-              −
-            </button>
-            <span className={styles.val}>{pts}</span>
-            <button
-              type="button"
-              disabled={left === 0 || pts === PER_SLOT_MAX}
-              aria-label={`Spend one more point on ${dayName} ${time}`}
-              onClick={() => bump(slot.id, 1)}
-            >
-              +
-            </button>
-            <span>points on this one</span>
-          </div>
-        )}
       </div>
     );
   };
@@ -291,9 +246,8 @@ export default function Preferences() {
             {allSlots.length > 0 && <span className={styles.range}>{rangeLabel(allSlots)}</span>}
           </h1>
           <p>
-            Mark every shift below, then spend your {WANT_BUDGET} points on the ones you
-            most want. It should take a few minutes. You can change your answers any time
-            and re-submit.
+            Mark every shift below. It should take a few minutes. You can change your
+            answers any time and re-submit.
           </p>
         </header>
 
@@ -378,19 +332,6 @@ export default function Preferences() {
                   />
                   <span>hours per week</span>
                 </div>
-              </div>
-            </div>
-
-            <div className={styles.meter}>
-              <div className={styles.gauge}>
-                <span className={styles.dots}>
-                  {Array.from({ length: WANT_BUDGET }, (_, i) => (
-                    <span key={i} className={`${styles.dot} ${i < left ? styles.on : ""}`} />
-                  ))}
-                </span>
-                <span className={styles.txt}>
-                  <b>{left}</b> points left
-                </span>
               </div>
             </div>
 

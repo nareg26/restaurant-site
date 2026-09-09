@@ -34,8 +34,7 @@ export default function Results({
     for (const r of rows) {
       const m = r.marks[slot.id];
       if (!m || !groups[m]) continue;
-      const p = r.points[slot.id] || 0;
-      groups[m].push(p ? `${r.name} (${p})` : r.name);
+      groups[m].push(r.name);
     }
     const available = groups.want.length + groups.fine.length;
     if (available < slot.need) thin.push(label(slot));
