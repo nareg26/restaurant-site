@@ -69,7 +69,7 @@ export default function Results({
             <div className={styles.rslotHead}>
               <span className={styles.rslotTime}>{label(slot)}</span>
               <span className={`${styles.cover} ${available < slot.need ? styles.thin : ""}`}>
-                {available} available · needs {slot.need}
+                {slot.need} needed · {available} available
               </span>
             </div>
             <div className={styles.names}>
