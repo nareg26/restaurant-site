@@ -315,7 +315,7 @@ export default function Preferences() {
 
               <div className={styles.hoursField}>
                 <label className={styles.label} htmlFor="pref-hours">
-                  How many hours do you want to work per week, ideally?
+                  How many hours do you want to work this week, ideally?
                 </label>
                 <div className={styles.hoursInput}>
                   <input
@@ -330,7 +330,7 @@ export default function Preferences() {
                       setHours(digits);
                     }}
                   />
-                  <span>hours per week</span>
+                  <span>hours this week</span>
                 </div>
               </div>
             </div>

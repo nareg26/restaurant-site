@@ -93,7 +93,7 @@ export default function Results({
           <thead>
             <tr>
               <th>Who</th>
-              <th>Hours/week</th>
+              <th>Hours</th>
               <th>Notes</th>
             </tr>
           </thead>
