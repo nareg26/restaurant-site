@@ -213,7 +213,7 @@ export default function NewPageMenu({
                   checked={isRecipe}
                   onChange={(e) => setIsRecipe(e.target.checked)}
                 />
-                Is this a recipe?
+                This is a recipe
               </label>
               <label className={styles.popCheck}>
                 <input
