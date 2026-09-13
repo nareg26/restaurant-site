@@ -62,7 +62,7 @@ export type EditorActions = {
   /** Upload files and attach them to the block. Rejects with a readable message. */
   addImages: (id: string, files: File[]) => Promise<void>;
   removeImage: (id: string, imageId: string) => void;
-  /** Templates only: make a page from this template on the sidebar's day. */
+  /** Non-repeating templates: make a page from this template on the sidebar's day. */
   useTemplate: () => void;
   /** Pages made from a template: open that template. */
   editTemplate: () => void;
@@ -166,9 +166,12 @@ export default function Editor({
             >
               ↻ {page.repeat ? summary(page.repeat) : "Does not repeat"}
             </button>
-            <button type="button" className={styles.useBtn} onClick={actions.useTemplate}>
-              Use for {dayLabel}
-            </button>
+            {/* A repeating template puts its pages on the right days itself. */}
+            {!page.repeat && (
+              <button type="button" className={styles.useBtn} onClick={actions.useTemplate}>
+                Add to {dayLabel}
+              </button>
+            )}
           </div>
         )}
         {!isTemplate && page.template_id && (

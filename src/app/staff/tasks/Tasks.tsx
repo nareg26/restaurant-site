@@ -413,6 +413,20 @@ export default function Tasks() {
         setStatus({ kind: "err", msg: "That template no longer exists" });
         return;
       }
+      // A repeating template already covers the days its rule hits: open that
+      // day's occurrence (started or not) rather than adding a duplicate.
+      if (t.page.repeat && targetDay && occursOn(t.page.repeat, targetDay)) {
+        const ex = await store.getException(templateId, targetDay);
+        if (!ex) {
+          go({ page: virtualId(templateId, targetDay) });
+          return;
+        }
+        if (ex.page_id) {
+          go({ page: ex.page_id });
+          return;
+        }
+        // Skipped earlier; they want it after all, so a fresh copy is right.
+      }
       const { page, blocks } = buildCopy(t, targetDay);
       await store.createPage(stripCreated(page), blocks);
       setOpen({ page, blocks });
