@@ -2,14 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import type { TemplateSummary } from "@/lib/tasks-store";
-import {
-  presetLabel,
-  presetOf,
-  presetRule,
-  summary,
-  type PresetKey,
-  type RepeatRule,
-} from "@/lib/tasks-repeat";
+import { presetRule, summary, type RepeatRule } from "@/lib/tasks-repeat";
 import RepeatDialog from "./RepeatDialog";
 import styles from "./tasks.module.css";
 
@@ -25,7 +18,6 @@ type Props = {
 };
 
 type View = "main" | "templates" | "new";
-const QUICK: PresetKey[] = ["none", "daily", "weekday", "weekly", "monthly", "custom"];
 
 /** The "+" button: blank page, or from a template (use / edit / create one). */
 export default function NewPageMenu({
@@ -108,8 +100,6 @@ export default function NewPageMenu({
     onCreateTemplate(n, isRecipe, repeat);
     close();
   };
-
-  const repeatPreset = presetOf(repeat);
 
   return (
     <div className={styles.menuRoot} ref={rootRef}>
@@ -225,27 +215,25 @@ export default function NewPageMenu({
                 />
                 Is this a recipe?
               </label>
-              <label className={styles.popSelectRow}>
-                <span>Repeats</span>
-                <select
-                  value={repeatPreset}
+              <label className={styles.popCheck}>
+                <input
+                  type="checkbox"
+                  checked={repeat !== null}
                   onChange={(e) => {
-                    const key = e.target.value as PresetKey;
-                    if (key === "custom") setDialog(true);
-                    else setRepeat(presetRule(key, today));
+                    if (e.target.checked) setDialog(true); // pick the rule in the dialog
+                    else setRepeat(null);
                   }}
-                  aria-label="Repeats"
-                >
-                  {QUICK.map((k) => (
-                    <option key={k} value={k}>
-                      {k === "custom" && repeatPreset === "custom" ? summary(repeat) : presetLabel(k, today)}
-                    </option>
-                  ))}
-                </select>
+                />
+                Repeats
               </label>
-              {repeatPreset === "custom" && (
-                <button type="button" className={styles.linkBtn} onClick={() => setDialog(true)}>
-                  Change…
+              {repeat && (
+                <button
+                  type="button"
+                  className={styles.popSummary}
+                  onClick={() => setDialog(true)}
+                  title="Change the rule"
+                >
+                  ↻ {summary(repeat)}
                 </button>
               )}
               <div className={styles.popActions}>
@@ -262,7 +250,7 @@ export default function NewPageMenu({
       )}
       {dialog && (
         <RepeatDialog
-          value={repeat}
+          value={repeat ?? presetRule("daily", today)} // ticking "Repeats" starts from Daily
           defaultStart={today}
           onDone={(rule) => {
             setRepeat(rule);

@@ -527,24 +527,19 @@
   color: var(--accent);
   margin-right: 4px;
 }
-.popSelectRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  padding: 0 4px;
+.popSummary {
+  align-self: flex-start;
+  margin: -2px 0 0 30px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  padding: 2px 0;
 }
-.popSelectRow select {
-  flex: 1;
-  width: 0;
-  min-width: 0;
-  font: inherit;
-  font-size: 14px;
-  padding: 7px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--ink);
+.popSummary:hover {
+  text-decoration: underline;
 }
 
 .modalBack {
