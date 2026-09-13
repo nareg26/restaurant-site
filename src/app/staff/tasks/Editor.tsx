@@ -245,7 +245,7 @@ export default function Editor({
             className={view === "table" ? styles.segOn : ""}
             onClick={() => setView("table")}
           >
-            Table
+            Ingredients
             {!isTemplate && page.recipe_scale !== 1 && (
               <span className={styles.segBadge}>×{fmtAmount(page.recipe_scale)}</span>
             )}
@@ -257,7 +257,7 @@ export default function Editor({
             className={view === "content" ? styles.segOn : ""}
             onClick={() => setView("content")}
           >
-            Content
+            Steps
           </button>
         </div>
       )}

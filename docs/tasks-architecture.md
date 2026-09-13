@@ -185,7 +185,7 @@ would replace the poll with no schema change.
   page's rows × scale, so steps follow the scaling. Backspace removes a pill
   whole. The name is cached in the token, which is what's shown (greyed,
   struck through) when the row no longer exists.
-- Table view vs content view is a segmented toggle on recipe pages and
+- "Ingredients" (the table) vs "Steps" (the blocks) is a segmented toggle on recipe pages and
   templates alike, defaulting to Table; nothing stored.
 
 ## Repeating pages (step 6)
