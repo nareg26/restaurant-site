@@ -10,7 +10,8 @@ create table if not exists task_pages (
   start_min    integer,                       -- minutes since midnight; null = no start time
   template_id  uuid references task_pages (id) on delete set null,
   is_recipe    boolean not null default false,
-  recipe       jsonb not null default '[]',
+  recipe       jsonb not null default '[]',   -- [{ id, amount, unit, name }]
+  recipe_scale double precision not null default 1,  -- pages: shown amount = amount × scale
   repeat       jsonb,                         -- templates only; null = doesn't repeat
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()

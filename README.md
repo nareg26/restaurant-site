@@ -11,7 +11,7 @@ Website and staff tools for the restaurant. Built with [Next.js](https://nextjs.
 | `/staff/shift?id=…` | Expanded view of one shift: times, person, notes, checklist |
 | `/staff/preferences` | Poll: staff mark which open shifts they want and spend points on favourites |
 | `/admin/preferences` | Set up the shifts being voted on each week |
-| `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists, photos); pages can be dated or undated, blank or made from a template |
+| `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists, photos); pages can be dated or undated, blank or made from a template. Recipe templates carry an ingredient table that pages scale from any row, with ingredient pills in the steps |
 
 ## Local development
 
@@ -84,7 +84,8 @@ from `/admin/preferences` each week.
    `task_repeat_exceptions` with the same open policies. The data model is
    explained in [`docs/tasks-architecture.md`](docs/tasks-architecture.md).
    Unlike the other tools, Tasks has no browser-only fallback: it needs
-   Supabase.
+   Supabase. (Installs created before recipes existed need one extra column:
+   `alter table task_pages add column recipe_scale double precision not null default 1;`)
 6. Photos on Tasks blocks live in a Storage bucket. Run
    [`supabase/task-images.sql`](supabase/task-images.sql) to create the
    public `task-images` bucket and its policies. Images are downsized in the

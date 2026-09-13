@@ -166,19 +166,26 @@ would replace the poll with no schema change.
 ## Recipes (step 5)
 
 - `task_pages.recipe` is the ingredient table, an ordered array:
-  `[{ id: "a1", amount: 300, unit: "g", name: "flour" }]`. Rows can be
-  added, removed and reordered; it lives on the template and is **copied**
-  onto every page made from it.
-- **Scaling** rewrites the page's own `recipe` amounts (all rows multiplied
-  by `newAmount / oldAmount` of the chosen base row) and saves them. Ratios
-  are preserved, so any row can be used as the base again later. The template
-  is untouched. Persisting (rather than keeping scale in local UI state)
-  means the phone and the tablet show the same numbers. No rounding.
-- **Ingredient pills** are tokens in block text: `[[ing:a1|flour]]`. The
-  editor renders a token as a pill showing the *current* amount and unit
-  from the page's `recipe` (so it follows scaling). The name is cached in
-  the token, which is what's shown when the row no longer exists.
-- Table view vs content view is a toggle on the page; nothing stored.
+  `[{ id: "a1c3", amount: 300, unit: "g", name: "flour" }]`. Rows are
+  defined on the template (add, remove, move up/down) and **copied**
+  unchanged onto every page made from it.
+- **Scaling** (agreed 2026-09-13): a page never edits its rows. It keeps a
+  single `recipe_scale` (double, default 1); every shown amount is
+  `amount × scale`. Tapping an amount on a page makes that row the base:
+  typing a new value sets `scale = new / row.amount`, so every other row
+  follows and precision never drifts across rebasings. "Reset" sets 1.
+  Templates always render at ×1. Rows with amount 0 can't be a base.
+- **Display**: up to two decimals, trailing zeros trimmed (8.53 pieces,
+  212.5 g). No rounding of counts to whole numbers.
+- **Ingredient pills** are tokens in block text: `[[ing:a1c3|flour]]`.
+  Typing `[` in a block on a recipe page or template opens a picker of the
+  rows (filtered as you type); picking one inserts the token. The editor
+  renders a token as a non-editable pill reading "300 g flour" from the
+  page's rows × scale, so steps follow the scaling. Backspace removes a pill
+  whole. The name is cached in the token, which is what's shown (greyed,
+  struck through) when the row no longer exists.
+- Table view vs content view is a segmented toggle on recipe pages and
+  templates alike, defaulting to Table; nothing stored.
 
 ## Repeating pages (step 6)
 
@@ -212,6 +219,9 @@ would replace the poll with no schema change.
 | `src/app/staff/tasks/` | `page.tsx`, `Tasks.tsx` (layout, sidebar, data + sync), `Editor.tsx` (blocks), `PageMenu.tsx`, `EmojiPicker.tsx`, `tasks.module.css` |
 | `src/app/staff/tasks/Lightbox.tsx` | Full-screen image viewer (swipe, remove, add) |
 | `src/app/staff/tasks/NewPageMenu.tsx` | The "+" chooser: blank / from template / new template |
+| `src/app/staff/tasks/RecipeTable.tsx` | Ingredient table: editable on templates, scale-by-base-row on pages |
+| `src/app/staff/tasks/blockText.ts` | Block text ⇄ contentEditable DOM with pills; caret offset mapping |
+| `src/lib/tasks-recipe.ts` | Tokens, amount formatting, scaling helpers |
 | `supabase/tasks.sql` | The table SQL above, ready to paste into the SQL editor |
 | `supabase/task-images.sql` | Bucket + storage policies |
 

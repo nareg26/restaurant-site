@@ -30,6 +30,8 @@ export type Page = {
   template_id: string | null;
   is_recipe: boolean;
   recipe: RecipeRow[];
+  /** Pages: every recipe amount is shown × this. Templates: always 1. */
+  recipe_scale: number;
   repeat: unknown | null; // rule shape decided in step 6
   created_at: string;
 };
@@ -60,7 +62,9 @@ export type TemplateSummary = Pick<
 >;
 
 export type NewPage = Omit<Page, "created_at">;
-export type PagePatch = Partial<Pick<Page, "day" | "title" | "emoji" | "start_min" | "recipe">>;
+export type PagePatch = Partial<
+  Pick<Page, "day" | "title" | "emoji" | "start_min" | "recipe" | "recipe_scale">
+>;
 export type BlockPatch = Partial<Pick<Block, "position" | "kind" | "text" | "done" | "images">>;
 
 /* ---------- helpers ---------- */
@@ -90,6 +94,13 @@ export const byPosition = (a: Block, b: Block) => a.position - b.position;
 const numOrNull = (v: any) =>
   v === null || v === undefined || v === "" ? null : Number(v);
 
+const normalizeRow = (v: any): RecipeRow => ({
+  id: String(v.id ?? ""),
+  amount: Number(v.amount ?? 0) || 0,
+  unit: (v.unit ?? "").toString(),
+  name: (v.name ?? "").toString(),
+});
+
 const normalizePage = (v: any): Page => ({
   id: String(v.id),
   kind: v.kind === "template" ? "template" : "page",
@@ -99,7 +110,8 @@ const normalizePage = (v: any): Page => ({
   start_min: numOrNull(v.start_min),
   template_id: v.template_id ? String(v.template_id) : null,
   is_recipe: Boolean(v.is_recipe),
-  recipe: Array.isArray(v.recipe) ? v.recipe : [],
+  recipe: Array.isArray(v.recipe) ? v.recipe.map(normalizeRow) : [],
+  recipe_scale: Number(v.recipe_scale ?? 1) > 0 ? Number(v.recipe_scale ?? 1) : 1,
   repeat: v.repeat ?? null,
   created_at: String(v.created_at ?? ""),
 });

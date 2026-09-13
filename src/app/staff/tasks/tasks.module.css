@@ -881,6 +881,209 @@
   right: 10px;
 }
 
+/* ---------- recipes ---------- */
+
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  margin: 0 0 14px;
+}
+.segmented button {
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.segmented .segOn {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.segBadge {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 6px;
+  line-height: 1.2;
+}
+
+.recipe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.recipeHint {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.recipeBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.recipeBar .recipeHint {
+  margin: 0;
+  flex: 1;
+}
+.scaleBadge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-radius: 999px;
+  padding: 4px 9px;
+}
+.rtHead,
+.rtRow {
+  display: grid;
+  grid-template-columns: 96px 80px 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.rtHead {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 0 2px;
+}
+.rtRow {
+  padding: 4px;
+  border-radius: 10px;
+}
+.rtRowPage {
+  grid-template-columns: 112px 80px 1fr;
+  padding: 2px 4px;
+}
+.rtBase {
+  background: var(--accent-bg);
+}
+.rtRow input {
+  font: inherit;
+  font-size: 16px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+  min-width: 0;
+  width: 100%;
+}
+.rtAmount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rtAmountBtn {
+  font: inherit;
+  font-size: 17px;
+  font-weight: 650;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rtAmountBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.rtAmountBtn:disabled {
+  cursor: default;
+  color: var(--muted);
+}
+.rtAmountBase {
+  border-color: var(--accent) !important;
+  font-weight: 650;
+}
+.rtUnitText,
+.rtNameText {
+  font-size: 17px;
+  padding: 0 4px;
+}
+.rtUnitText {
+  color: var(--muted);
+}
+.rtTools {
+  display: flex;
+  gap: 2px;
+}
+.rtTools button {
+  width: 36px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 15px;
+}
+.rtTools button:hover:not(:disabled) {
+  background: #f1efeb;
+  color: var(--ink);
+}
+.rtTools button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.rtDelete:hover:not(:disabled) {
+  color: var(--danger) !important;
+}
+.rtAdd {
+  align-self: flex-start;
+  margin-top: 4px;
+  border: 1px dashed var(--line);
+  background: none;
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--accent);
+}
+.rtAdd:hover {
+  background: var(--accent-bg);
+}
+
+.pill {
+  display: inline-block;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 0 6px;
+  margin: 0 1px;
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 1.35;
+}
+.pillMissing {
+  background: #edece8;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.ingItem span {
+  font-variant-numeric: tabular-nums;
+}
+.slashEmpty {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .slashMenu {
   position: absolute;
   left: 4px;
@@ -995,5 +1198,16 @@
   }
   .lbArrow {
     display: none; /* swipe instead */
+  }
+  .rtHead,
+  .rtRow {
+    grid-template-columns: 76px 64px 1fr auto;
+    gap: 6px;
+  }
+  .rtRowPage {
+    grid-template-columns: 92px 64px 1fr;
+  }
+  .rtTools button {
+    width: 30px;
   }
 }

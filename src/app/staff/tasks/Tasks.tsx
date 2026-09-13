@@ -296,6 +296,7 @@ export default function Tasks() {
       template_id: null,
       is_recipe: false,
       recipe: [],
+      recipe_scale: 1,
       repeat: null,
       created_at: new Date().toISOString(),
     };
@@ -314,6 +315,7 @@ export default function Tasks() {
       template_id: null,
       is_recipe: isRecipe,
       recipe: [],
+      recipe_scale: 1,
       repeat: null,
       created_at: new Date().toISOString(),
     };
@@ -340,6 +342,7 @@ export default function Tasks() {
         template_id: t.page.id,
         is_recipe: t.page.is_recipe,
         recipe: t.page.recipe,
+        recipe_scale: 1,
         repeat: null,
         created_at: new Date().toISOString(),
       };
@@ -645,6 +648,7 @@ export default function Tasks() {
       <main className={styles.main}>
         {shown ? (
           <Editor
+            key={shown.page.id}
             page={shown.page}
             blocks={shown.blocks}
             actions={actions}
