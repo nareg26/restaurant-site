@@ -85,6 +85,11 @@ from `/admin/preferences` each week.
    explained in [`docs/tasks-architecture.md`](docs/tasks-architecture.md).
    Unlike the other tools, Tasks has no browser-only fallback: it needs
    Supabase.
+6. Photos on Tasks blocks live in a Storage bucket. Run
+   [`supabase/task-images.sql`](supabase/task-images.sql) to create the
+   public `task-images` bucket and its policies. Images are downsized in the
+   browser (max 1600 px) before upload and are never copied: pages made from
+   a template share the same objects.
 
 > **On IDs:** there is no authentication. Anyone who knows a number can view
 > and overwrite that person's answers, so hand out numbers that aren't trivially

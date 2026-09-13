@@ -578,6 +578,174 @@
   cursor: text;
 }
 
+/* ---------- images on blocks ---------- */
+
+.camBtn {
+  display: none;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  font-size: 16px;
+  line-height: 1;
+  margin-top: 1px;
+  opacity: 0.85;
+}
+.block:focus-within .camBtn {
+  display: inline-flex;
+}
+.camBtn:hover {
+  opacity: 1;
+  background: #f1efeb;
+}
+.dropOver {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+.thumbWrap {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 40%;
+}
+.thumbBtn {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0;
+}
+.thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #ece9e3;
+  cursor: zoom-in;
+}
+.thumbBadge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 999px;
+}
+.thumbUploading {
+  width: 96px;
+  height: 96px;
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--card);
+}
+.imgError {
+  font-size: 12px;
+  color: var(--danger);
+  text-align: right;
+}
+
+/* ---------- image viewer ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(12, 12, 12, 0.95);
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+}
+.lbTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+.lbTop button {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-radius: 9px;
+  padding: 9px 13px;
+  font-size: 14px;
+  min-height: 40px;
+}
+.lbTop button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.lbTop button:disabled {
+  opacity: 0.5;
+}
+.lbCount {
+  margin-right: auto;
+  font-size: 14px;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+.lbDanger {
+  border-color: rgba(255, 120, 120, 0.5) !important;
+  color: #ffb4b4 !important;
+}
+.lbBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 8px;
+  touch-action: pan-y;
+}
+.lbImg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.lbArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 72px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 34px;
+  line-height: 1;
+}
+.lbArrow:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+.lbPrev {
+  left: 10px;
+}
+.lbNext {
+  right: 10px;
+}
+
 .slashMenu {
   position: absolute;
   left: 4px;
@@ -684,5 +852,13 @@
   }
   .titleInput {
     font-size: 26px;
+  }
+  .thumb,
+  .thumbUploading {
+    width: 72px;
+    height: 72px;
+  }
+  .lbArrow {
+    display: none; /* swipe instead */
   }
 }

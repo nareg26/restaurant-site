@@ -2,8 +2,10 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Block, BlockKind, Page } from "@/lib/tasks-store";
+import { imageUrl } from "@/lib/tasks-images";
 import { fmtMin, parseTime } from "@/lib/time";
 import EmojiPicker from "./EmojiPicker";
+import Lightbox from "./Lightbox";
 import PageMenu from "./PageMenu";
 import styles from "./tasks.module.css";
 
@@ -87,7 +89,13 @@ export type EditorActions = {
   movePage: (day: string | null) => void;
   deletePage: () => void;
   setFocusedBlock: (id: string | null) => void;
+  /** Upload files and attach them to the block. Rejects with a readable message. */
+  addImages: (id: string, files: File[]) => Promise<void>;
+  removeImage: (id: string, imageId: string) => void;
 };
+
+const onlyImages = (files: Iterable<File>) =>
+  Array.from(files).filter((f) => f.type.startsWith("image/"));
 
 type Props = {
   page: Page;
@@ -103,7 +111,11 @@ type Props = {
 
 export default function Editor({ page, blocks, actions, focus, onFocusHandled, onBack }: Props) {
   const [slash, setSlash] = useState<{ id: string; query: string; index: number } | null>(null);
+  const [viewer, setViewer] = useState<{ blockId: string; index: number } | null>(null);
+  const [viewerAdding, setViewerAdding] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const viewerBlock = viewer ? blocks.find((b) => b.id === viewer.blockId) ?? null : null;
+  const closeViewer = useCallback(() => setViewer(null), []);
 
   // Focus the title of a brand-new page.
   useEffect(() => {
@@ -203,6 +215,7 @@ export default function Editor({ page, blocks, actions, focus, onFocusHandled, o
             slash={slash?.id === b.id ? slash : null}
             setSlash={setSlash}
             onUpToTitle={() => titleRef.current?.focus()}
+            onOpenImages={(index) => setViewer({ blockId: b.id, index })}
           />
         ))}
         <div
@@ -216,6 +229,27 @@ export default function Editor({ page, blocks, actions, focus, onFocusHandled, o
           {blocks.length === 0 ? "Tap here to start writing. Type / for a header or checklist." : ""}
         </div>
       </div>
+
+      {viewer && viewerBlock && viewerBlock.images.length > 0 && (
+        <Lightbox
+          images={viewerBlock.images}
+          index={viewer.index}
+          onIndex={(index) => setViewer({ blockId: viewerBlock.id, index })}
+          onClose={closeViewer}
+          onRemove={(img) => actions.removeImage(viewerBlock.id, img.id)}
+          adding={viewerAdding}
+          onAdd={async (files) => {
+            setViewerAdding(true);
+            try {
+              await actions.addImages(viewerBlock.id, onlyImages(files));
+            } catch (e) {
+              alert(e instanceof Error ? e.message : "Upload failed");
+            } finally {
+              setViewerAdding(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -233,6 +267,7 @@ type RowProps = {
   slash: { id: string; query: string; index: number } | null;
   setSlash: React.Dispatch<React.SetStateAction<{ id: string; query: string; index: number } | null>>;
   onUpToTitle: () => void;
+  onOpenImages: (index: number) => void;
 };
 
 function BlockRow({
@@ -246,8 +281,27 @@ function BlockRow({
   slash,
   setSlash,
   onUpToTitle,
+  onOpenImages,
 }: RowProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(0);
+  const [imgError, setImgError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFiles = async (files: Iterable<File>) => {
+    const list = onlyImages(files);
+    if (!list.length) return;
+    setImgError("");
+    setUploading((n) => n + list.length);
+    try {
+      await actions.addImages(block.id, list);
+    } catch (e) {
+      setImgError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading((n) => n - list.length);
+    }
+  };
 
   // Push server/local text into the DOM only when the block isn't being typed in.
   useLayoutEffect(() => {
@@ -347,6 +401,7 @@ function BlockRow({
       }
       if (!text) {
         e.preventDefault();
+        if (block.images.length) return; // keep the photos; remove them from the viewer first
         if (next) {
           actions.deleteBlock(block.id);
           requestFocus(next.id, 0);
@@ -379,6 +434,10 @@ function BlockRow({
 
   const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (e.clipboardData.files.length) {
+      handleFiles(e.clipboardData.files);
+      return;
+    }
     const plain = e.clipboardData.getData("text/plain");
     const lines = plain.split(/\r?\n/);
     const el = ref.current;
@@ -403,8 +462,28 @@ function BlockRow({
 
   const opts = slash ? filterSlash(slash.query) : [];
 
+  const first = block.images[0];
+  const hasImages = block.images.length > 0;
+
   return (
-    <div className={`${styles.block} ${styles["k_" + block.kind]}`}>
+    <div
+      className={`${styles.block} ${styles["k_" + block.kind]} ${hasImages ? styles.hasImages : ""} ${
+        dragOver ? styles.dropOver : ""
+      }`}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        setDragOver(false);
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        handleFiles(e.dataTransfer.files);
+      }}
+    >
       {block.kind === "todo" && (
         <input
           type="checkbox"
@@ -431,6 +510,51 @@ function BlockRow({
           actions.setFocusedBlock(null);
           // Let a click on a slash option land before the menu closes.
           setTimeout(() => setSlash((s) => (s?.id === block.id ? null : s)), 150);
+        }}
+      />
+      {!hasImages && !uploading && (
+        <button
+          type="button"
+          className={styles.camBtn}
+          aria-label="Add a photo to this block"
+          title="Add a photo"
+          onMouseDown={(e) => e.preventDefault()} // keep the text focused
+          onClick={() => fileRef.current?.click()}
+        >
+          📷
+        </button>
+      )}
+      {(hasImages || uploading > 0) && (
+        <div className={styles.thumbWrap}>
+          {first ? (
+            <button
+              type="button"
+              className={styles.thumbBtn}
+              onClick={() => onOpenImages(0)}
+              aria-label={`Open ${block.images.length} photo${block.images.length === 1 ? "" : "s"}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className={styles.thumb} src={imageUrl(first.path)} alt="" width={first.w} height={first.h} />
+              {block.images.length > 1 && (
+                <span className={styles.thumbBadge}>+{block.images.length - 1}</span>
+              )}
+            </button>
+          ) : null}
+          {uploading > 0 && <div className={styles.thumbUploading}>Uploading…</div>}
+          {imgError && <div className={styles.imgError}>{imgError}</div>}
+        </div>
+      )}
+      {!hasImages && imgError && <div className={styles.imgError}>{imgError}</div>}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = "";
+          if (files.length) handleFiles(files);
         }}
       />
       {slash && opts.length > 0 && (

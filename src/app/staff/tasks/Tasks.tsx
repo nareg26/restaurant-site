@@ -15,6 +15,7 @@ import {
   type PagePatch,
   type PageSummary,
 } from "@/lib/tasks-store";
+import { uploadImage } from "@/lib/tasks-images";
 import { addDays, fmtMin, fromISODate, toISODate } from "@/lib/time";
 import Editor, { type EditorActions, type Focus } from "./Editor";
 import PageMenu from "./PageMenu";
@@ -423,6 +424,7 @@ export default function Tasks() {
       const me = cur.blocks[idx];
       const offset = prev.text.length;
       const merged = prev.text + me.text;
+      const images = [...prev.images, ...me.images];
       // Drop any pending text saves for both; we write the final state directly.
       for (const bid of [prev.id, me.id]) {
         const t = textTimers.current.get(bid);
@@ -431,10 +433,12 @@ export default function Tasks() {
         pendingText.current.delete(bid);
       }
       commitBlocks((bs) =>
-        bs.filter((b) => b.id !== me.id).map((b) => (b.id === prev.id ? { ...b, text: merged } : b))
+        bs
+          .filter((b) => b.id !== me.id)
+          .map((b) => (b.id === prev.id ? { ...b, text: merged, images } : b))
       );
       enqueue(async () => {
-        await store.updateBlock(prev.id, { text: merged });
+        await store.updateBlock(prev.id, { text: merged, images });
         await store.deleteBlock(me.id);
         if (me.kind === "todo") await refreshLists();
       });
@@ -450,6 +454,22 @@ export default function Tasks() {
     },
     setFocusedBlock(id) {
       focusedBlockRef.current = id;
+    },
+    async addImages(id, files) {
+      // Uploads run in parallel; the block is updated once they've all landed.
+      const refs = await Promise.all(files.map(uploadImage));
+      const b = openRef.current?.blocks.find((x) => x.id === id);
+      if (!b) return; // block went away meanwhile; the objects just sit unreferenced
+      const images = [...b.images, ...refs];
+      commitBlocks((bs) => bs.map((x) => (x.id === id ? { ...x, images } : x)));
+      enqueue(() => store.updateBlock(id, { images }));
+    },
+    removeImage(id, imageId) {
+      const b = openRef.current?.blocks.find((x) => x.id === id);
+      if (!b) return;
+      const images = b.images.filter((i) => i.id !== imageId);
+      commitBlocks((bs) => bs.map((x) => (x.id === id ? { ...x, images } : x)));
+      enqueue(() => store.updateBlock(id, { images }));
     },
   };
 

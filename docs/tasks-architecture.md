@@ -204,7 +204,9 @@ would replace the poll with no schema change.
 | `src/lib/tasks-recipe.ts` | Scaling math, token parse/serialize (step 5) |
 | `src/lib/tasks-repeat.ts` | Rule → occurrences for a date range (step 6) |
 | `src/app/staff/tasks/` | `page.tsx`, `Tasks.tsx` (layout, sidebar, data + sync), `Editor.tsx` (blocks), `PageMenu.tsx`, `EmojiPicker.tsx`, `tasks.module.css` |
-| `supabase/tasks.sql` | The SQL above, ready to paste into the SQL editor |
+| `src/app/staff/tasks/Lightbox.tsx` | Full-screen image viewer (swipe, remove, add) |
+| `supabase/tasks.sql` | The table SQL above, ready to paste into the SQL editor |
+| `supabase/task-images.sql` | Bucket + storage policies |
 
 Not carried over from the other features (agreed 2026-09-13): the
 localStorage fallback. With
