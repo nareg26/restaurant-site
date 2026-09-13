@@ -145,14 +145,20 @@ would replace the poll with no schema change.
 
 ## Templates (step 4)
 
+- Templates are reached only through the "+" chooser (agreed 2026-09-13):
+  Blank page, or From template, which lists templates (tap to use, pencil
+  to edit) with "New template…" at the bottom. They never appear in the
+  sidebar sections.
 - Create template: insert a `task_pages` row with `kind='template'`, plus
-  `is_recipe` / `repeat` answered in the creation flow. Edited in the same
-  editor as a page.
+  `is_recipe` (and, from step 6, `repeat`) answered in the creation flow.
+  Edited in the same editor as a page, marked with a Template tag and a
+  "Use for <day>" button; its menu offers Delete only.
 - Create page from template: read template + blocks, insert a new page with
   `template_id = template.id`, `kind='page'`, chosen `day` (or null), copied
-  `recipe`, then bulk-insert copied blocks with fresh ids and the same
-  positions (image references copied as-is; the objects are shared). After
-  that it is independent.
+  `title`/`emoji`/`start_min`/`recipe`, then bulk-insert copied blocks with
+  fresh ids, the same positions and every checklist tick cleared (image
+  references copied as-is; the objects are shared). After that it is
+  independent.
 - "Edit template" opens `template_id`. If the template was deleted, the FK
   sets it to null and the shortcut disappears.
 - Deleting a template does not touch pages made from it.
@@ -205,6 +211,7 @@ would replace the poll with no schema change.
 | `src/lib/tasks-repeat.ts` | Rule → occurrences for a date range (step 6) |
 | `src/app/staff/tasks/` | `page.tsx`, `Tasks.tsx` (layout, sidebar, data + sync), `Editor.tsx` (blocks), `PageMenu.tsx`, `EmojiPicker.tsx`, `tasks.module.css` |
 | `src/app/staff/tasks/Lightbox.tsx` | Full-screen image viewer (swipe, remove, add) |
+| `src/app/staff/tasks/NewPageMenu.tsx` | The "+" chooser: blank / from template / new template |
 | `supabase/tasks.sql` | The table SQL above, ready to paste into the SQL editor |
 | `supabase/task-images.sql` | Bucket + storage policies |
 

@@ -12,10 +12,19 @@ type Props = {
   /** Where the popover opens relative to the button. */
   align?: "left" | "right";
   label?: string;
+  /** Templates can't be moved to a day. */
+  canMove?: boolean;
 };
 
 /** The "⋯" context menu shared by sidebar thumbnails and the open page. */
-export default function PageMenu({ currentDay, onMove, onDelete, align = "right", label }: Props) {
+export default function PageMenu({
+  currentDay,
+  onMove,
+  onDelete,
+  align = "right",
+  label,
+  canMove = true,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"main" | "move">("main");
   const [picked, setPicked] = useState("");
@@ -75,9 +84,11 @@ export default function PageMenu({ currentDay, onMove, onDelete, align = "right"
         >
           {view === "main" ? (
             <>
-              <button type="button" className={styles.popItem} onClick={() => setView("move")}>
-                Move to…
-              </button>
+              {canMove && (
+                <button type="button" className={styles.popItem} onClick={() => setView("move")}>
+                  Move to…
+                </button>
+              )}
               <button
                 type="button"
                 className={`${styles.popItem} ${styles.popDanger}`}

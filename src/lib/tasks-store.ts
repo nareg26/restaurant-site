@@ -53,6 +53,12 @@ export type PageSummary = Pick<
   todo_done: number;
 };
 
+/** What the template chooser needs. */
+export type TemplateSummary = Pick<
+  Page,
+  "id" | "title" | "emoji" | "is_recipe" | "repeat" | "start_min" | "created_at"
+>;
+
 export type NewPage = Omit<Page, "created_at">;
 export type PagePatch = Partial<Pick<Page, "day" | "title" | "emoji" | "start_min" | "recipe">>;
 export type BlockPatch = Partial<Pick<Block, "position" | "kind" | "text" | "done" | "images">>;
@@ -148,6 +154,8 @@ const SUMMARY_SELECT =
 export interface TasksStore {
   /** Real pages on one day, in sidebar order. */
   listDay(day: string): Promise<PageSummary[]>;
+  /** All templates, alphabetical. */
+  listTemplates(): Promise<TemplateSummary[]>;
   /** Real pages with no day, in sidebar order. */
   listUndated(): Promise<PageSummary[]>;
   getPage(id: string): Promise<{ page: Page; blocks: Block[] } | null>;
@@ -167,6 +175,26 @@ export const store: TasksStore = {
       })
     );
     return ((await r.json()) as unknown[]).map(normalizeSummary).sort(bySidebarOrder);
+  },
+  async listTemplates() {
+    const r = await check(
+      await fetch(
+        `${pagesUrl}?select=id,title,emoji,is_recipe,repeat,start_min,created_at&kind=eq.template&order=title.asc,created_at.asc`,
+        { headers }
+      )
+    );
+    return ((await r.json()) as unknown[]).map((v) => {
+      const p = normalizePage(v);
+      return {
+        id: p.id,
+        title: p.title,
+        emoji: p.emoji,
+        is_recipe: p.is_recipe,
+        repeat: p.repeat,
+        start_min: p.start_min,
+        created_at: p.created_at,
+      };
+    });
   },
   async listUndated() {
     const r = await check(

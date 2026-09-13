@@ -92,6 +92,10 @@ export type EditorActions = {
   /** Upload files and attach them to the block. Rejects with a readable message. */
   addImages: (id: string, files: File[]) => Promise<void>;
   removeImage: (id: string, imageId: string) => void;
+  /** Templates only: make a page from this template on the sidebar's day. */
+  useTemplate: () => void;
+  /** Pages made from a template: open that template. */
+  editTemplate: () => void;
 };
 
 const onlyImages = (files: Iterable<File>) =>
@@ -105,11 +109,14 @@ type Props = {
   onFocusHandled: () => void;
   /** Mobile only: go back to the list. */
   onBack: () => void;
+  /** "today" or "Mon 14 Sept" — for the template's "Use for …" button. */
+  dayLabel: string;
 };
 
 /* ---------- editor ---------- */
 
-export default function Editor({ page, blocks, actions, focus, onFocusHandled, onBack }: Props) {
+export default function Editor({ page, blocks, actions, focus, onFocusHandled, onBack, dayLabel }: Props) {
+  const isTemplate = page.kind === "template";
   const [slash, setSlash] = useState<{ id: string; query: string; index: number } | null>(null);
   const [viewer, setViewer] = useState<{ blockId: string; index: number } | null>(null);
   const [viewerAdding, setViewerAdding] = useState(false);
@@ -152,6 +159,20 @@ export default function Editor({ page, blocks, actions, focus, onFocusHandled, o
         <button type="button" className={styles.backBtn} onClick={onBack}>
           ‹ Pages
         </button>
+        {isTemplate && (
+          <div className={styles.templateBar}>
+            <span className={styles.tag}>Template</span>
+            {page.is_recipe && <span className={styles.tag}>Recipe</span>}
+            <button type="button" className={styles.useBtn} onClick={actions.useTemplate}>
+              Use for {dayLabel}
+            </button>
+          </div>
+        )}
+        {!isTemplate && page.template_id && (
+          <button type="button" className={styles.linkBtn} onClick={actions.editTemplate}>
+            ✎ Edit template
+          </button>
+        )}
         <div className={styles.editorMeta}>
           <label className={styles.timeField}>
             <span>Start</span>
@@ -179,6 +200,7 @@ export default function Editor({ page, blocks, actions, focus, onFocusHandled, o
             onMove={actions.movePage}
             onDelete={actions.deletePage}
             align="right"
+            canMove={!isTemplate}
           />
         </div>
       </div>

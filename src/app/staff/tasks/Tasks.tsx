@@ -18,6 +18,7 @@ import {
 import { uploadImage } from "@/lib/tasks-images";
 import { addDays, fmtMin, fromISODate, toISODate } from "@/lib/time";
 import Editor, { type EditorActions, type Focus } from "./Editor";
+import NewPageMenu from "./NewPageMenu";
 import PageMenu from "./PageMenu";
 import styles from "./tasks.module.css";
 
@@ -32,6 +33,7 @@ const weekdayOf = (iso: string) =>
   fromISODate(iso).toLocaleDateString("en-GB", { weekday: "long" });
 const dateOf = (iso: string) =>
   fromISODate(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const dayShort = (iso: string) => fromISODate(iso).toLocaleDateString("en-GB", { weekday: "short" });
 
 export default function Tasks() {
   const router = useRouter();
@@ -258,6 +260,30 @@ export default function Tasks() {
     go({ page: null });
   };
 
+  const emptyBlock = (pageId: string): Block => ({
+    id: newId(),
+    page_id: pageId,
+    position: 1,
+    kind: "text",
+    text: "",
+    done: false,
+    images: [],
+  });
+
+  /** Show a page we just built locally, persist it, and open it. */
+  const openNew = (page: Page, blocks: Block[], focusTitle: boolean) => {
+    const { created_at: _c, ...newPage } = page;
+    void _c;
+    setOpen({ page, blocks });
+    setOpenStateKind("idle");
+    enqueue(async () => {
+      await store.createPage(newPage, blocks);
+      await refreshLists();
+    });
+    go({ page: page.id });
+    if (focusTitle) setFocus({ id: "title", offset: 0 });
+  };
+
   const createBlank = (targetDay: string | null) => {
     const id = newId();
     const page: Page = {
@@ -273,25 +299,60 @@ export default function Tasks() {
       repeat: null,
       created_at: new Date().toISOString(),
     };
-    const block: Block = {
-      id: newId(),
-      page_id: id,
-      position: 1,
-      kind: "text",
-      text: "",
-      done: false,
-      images: [],
+    openNew(page, [emptyBlock(id)], true);
+  };
+
+  const createTemplate = (name: string, isRecipe: boolean) => {
+    const id = newId();
+    const page: Page = {
+      id,
+      kind: "template",
+      day: null,
+      title: name,
+      emoji: "",
+      start_min: null,
+      template_id: null,
+      is_recipe: isRecipe,
+      recipe: [],
+      repeat: null,
+      created_at: new Date().toISOString(),
     };
-    const { created_at: _c, ...newPage } = page;
-    void _c;
-    setOpen({ page, blocks: [block] });
-    setOpenStateKind("idle");
+    openNew(page, [emptyBlock(id)], false);
+  };
+
+  /** Copy a template into a new, independent page. Checklist ticks start clear. */
+  const createFromTemplate = (templateId: string, targetDay: string | null) => {
+    flushAll();
     enqueue(async () => {
-      await store.createPage(newPage, [block]);
+      const t = await store.getPage(templateId);
+      if (!t) {
+        setStatus({ kind: "err", msg: "That template no longer exists" });
+        return;
+      }
+      const id = newId();
+      const page: Page = {
+        id,
+        kind: "page",
+        day: targetDay,
+        title: t.page.title,
+        emoji: t.page.emoji,
+        start_min: t.page.start_min,
+        template_id: t.page.id,
+        is_recipe: t.page.is_recipe,
+        recipe: t.page.recipe,
+        repeat: null,
+        created_at: new Date().toISOString(),
+      };
+      const copied = t.blocks.map((b) => ({ ...b, id: newId(), page_id: id, done: false }));
+      const blocks = copied.length ? copied : [emptyBlock(id)];
+      const { created_at: _c, ...newPage } = page;
+      void _c;
+      await store.createPage(newPage, blocks);
+      setOpen({ page, blocks });
+      setOpenStateKind("idle");
+      go({ page: id });
       await refreshLists();
     });
-    go({ page: id });
-    setFocus({ id: "title", offset: 0 });
   };
 
   const movePageById = (id: string, targetDay: string | null) => {
@@ -464,6 +525,14 @@ export default function Tasks() {
       commitBlocks((bs) => bs.map((x) => (x.id === id ? { ...x, images } : x)));
       enqueue(() => store.updateBlock(id, { images }));
     },
+    useTemplate() {
+      const cur = openRef.current;
+      if (cur?.page.kind === "template") createFromTemplate(cur.page.id, day);
+    },
+    editTemplate() {
+      const cur = openRef.current;
+      if (cur?.page.template_id) go({ page: cur.page.template_id });
+    },
     removeImage(id, imageId) {
       const b = openRef.current?.blocks.find((x) => x.id === id);
       if (!b) return;
@@ -542,7 +611,10 @@ export default function Tasks() {
           items={dated}
           openId={pageId}
           empty={lists.day === day ? "Nothing planned for this day." : ""}
-          onAdd={() => createBlank(day)}
+          onBlank={() => createBlank(day)}
+          onFromTemplate={(tid) => createFromTemplate(tid, day)}
+          onEditTemplate={(tid) => go({ page: tid })}
+          onCreateTemplate={createTemplate}
           onOpen={(id) => go({ page: id })}
           onMove={movePageById}
           onDelete={deletePageById}
@@ -552,7 +624,10 @@ export default function Tasks() {
           items={undated}
           openId={pageId}
           empty="Pages without a day live here."
-          onAdd={() => createBlank(null)}
+          onBlank={() => createBlank(null)}
+          onFromTemplate={(tid) => createFromTemplate(tid, null)}
+          onEditTemplate={(tid) => go({ page: tid })}
+          onCreateTemplate={createTemplate}
           onOpen={(id) => go({ page: id })}
           onMove={movePageById}
           onDelete={deletePageById}
@@ -576,6 +651,7 @@ export default function Tasks() {
             focus={focus}
             onFocusHandled={() => setFocus(null)}
             onBack={closeOpen}
+            dayLabel={isToday ? "today" : `${dayShort(day)} ${dateOf(day)}`}
           />
         ) : pageId && openState !== "missing" ? (
           <div className={styles.placeholder} />
@@ -603,20 +679,42 @@ type SectionProps = {
   items: PageSummary[];
   openId: string | null;
   empty: string;
-  onAdd: () => void;
+  onBlank: () => void;
+  onFromTemplate: (templateId: string) => void;
+  onEditTemplate: (templateId: string) => void;
+  onCreateTemplate: (name: string, isRecipe: boolean) => void;
   onOpen: (id: string) => void;
   onMove: (id: string, day: string | null) => void;
   onDelete: (id: string, label: string) => void;
 };
 
-function Section({ title, items, openId, empty, onAdd, onOpen, onMove, onDelete }: SectionProps) {
+const loadTemplates = () => store.listTemplates();
+
+function Section({
+  title,
+  items,
+  openId,
+  empty,
+  onBlank,
+  onFromTemplate,
+  onEditTemplate,
+  onCreateTemplate,
+  onOpen,
+  onMove,
+  onDelete,
+}: SectionProps) {
   return (
     <section className={styles.section}>
       <header className={styles.sectionHead}>
         <h2>{title}</h2>
-        <button type="button" className={styles.addBtn} aria-label={`Add page: ${title}`} onClick={onAdd}>
-          +
-        </button>
+        <NewPageMenu
+          label={`Add page: ${title}`}
+          loadTemplates={loadTemplates}
+          onBlank={onBlank}
+          onFromTemplate={onFromTemplate}
+          onEditTemplate={onEditTemplate}
+          onCreateTemplate={onCreateTemplate}
+        />
       </header>
       {items.length === 0 ? (
         <p className={styles.empty}>{empty}</p>
