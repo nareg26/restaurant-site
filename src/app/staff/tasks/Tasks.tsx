@@ -832,9 +832,6 @@ export default function Tasks() {
                 aria-expanded={templatesOpen}
               >
                 Templates
-                {lists.templates.length > 0 && (
-                  <span className={styles.countBadge}>{lists.templates.length}</span>
-                )}
                 <span className={styles.chev} aria-hidden="true">
                   {templatesOpen ? "▾" : "▸"}
                 </span>
