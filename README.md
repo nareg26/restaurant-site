@@ -11,7 +11,7 @@ Website and staff tools for the restaurant. Built with [Next.js](https://nextjs.
 | `/staff/shift?id=…` | Expanded view of one shift: times, person, notes, checklist |
 | `/staff/preferences` | Poll: staff mark which open shifts they want and spend points on favourites |
 | `/admin/preferences` | Set up the shifts being voted on each week |
-| `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists, photos); pages can be dated or undated, blank or made from a template. Recipe templates carry an ingredient table that pages scale from any row, with ingredient pills in the steps |
+| `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists, photos); pages can be dated or undated, blank or made from a template. Recipe templates carry an ingredient table that pages scale from any row, with ingredient pills in the steps. Templates can repeat (daily, weekdays, weekly, monthly, custom) and show up on the right days until someone starts them |
 
 ## Local development
 

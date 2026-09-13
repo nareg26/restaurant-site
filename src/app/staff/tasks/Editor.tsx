@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import type { Block, BlockKind, Page, RecipeRow } from "@/lib/tasks-store";
 import { imageUrl } from "@/lib/tasks-images";
 import { fmtAmount, makeToken } from "@/lib/tasks-recipe";
+import { summary, type RepeatRule } from "@/lib/tasks-repeat";
 import { fmtMin, parseTime } from "@/lib/time";
 import {
   hasSelection,
@@ -18,6 +19,7 @@ import EmojiPicker from "./EmojiPicker";
 import Lightbox from "./Lightbox";
 import PageMenu from "./PageMenu";
 import RecipeTable from "./RecipeTable";
+import RepeatDialog from "./RepeatDialog";
 import styles from "./tasks.module.css";
 
 /* ---------- slash menu ---------- */
@@ -44,7 +46,7 @@ export type Focus = { id: string; offset: number | "end" } | null;
 
 export type EditorActions = {
   patchPage: (
-    patch: Partial<Pick<Page, "title" | "emoji" | "start_min" | "recipe" | "recipe_scale">>
+    patch: Partial<Pick<Page, "title" | "emoji" | "start_min" | "recipe" | "recipe_scale" | "repeat">>
   ) => void;
   setBlockText: (id: string, text: string) => void;
   setBlockKind: (id: string, kind: BlockKind) => void;
@@ -83,12 +85,27 @@ type Props = {
   onBack: () => void;
   /** "today" or "Mon 14 Sept" — for the template's "Use for …" button. */
   dayLabel: string;
+  /** Today's ISO date: the anchor for new repeat rules. */
+  today: string;
+  /** An occurrence of a repeating template that nobody has touched yet. */
+  virtual: boolean;
 };
 
 /* ---------- editor ---------- */
 
-export default function Editor({ page, blocks, actions, focus, onFocusHandled, onBack, dayLabel }: Props) {
+export default function Editor({
+  page,
+  blocks,
+  actions,
+  focus,
+  onFocusHandled,
+  onBack,
+  dayLabel,
+  today,
+  virtual,
+}: Props) {
   const isTemplate = page.kind === "template";
+  const [repeatDialog, setRepeatDialog] = useState(false);
   const [slash, setSlash] = useState<SlashState>(null);
   const [ing, setIng] = useState<IngState>(null);
   const [viewer, setViewer] = useState<{ blockId: string; index: number } | null>(null);
@@ -141,15 +158,30 @@ export default function Editor({ page, blocks, actions, focus, onFocusHandled, o
           <div className={styles.templateBar}>
             <span className={styles.tag}>Template</span>
             {page.is_recipe && <span className={styles.tag}>Recipe</span>}
+            <button
+              type="button"
+              className={`${styles.repeatChip} ${page.repeat ? styles.repeatOn : ""}`}
+              onClick={() => setRepeatDialog(true)}
+              title="Change how this template repeats"
+            >
+              ↻ {page.repeat ? summary(page.repeat) : "Does not repeat"}
+            </button>
             <button type="button" className={styles.useBtn} onClick={actions.useTemplate}>
               Use for {dayLabel}
             </button>
           </div>
         )}
         {!isTemplate && page.template_id && (
-          <button type="button" className={styles.linkBtn} onClick={actions.editTemplate}>
-            ✎ Edit template
-          </button>
+          <div className={styles.templateBar}>
+            {virtual && (
+              <span className={styles.tag} title="Edits turn this into a real page">
+                ↻ Not started
+              </span>
+            )}
+            <button type="button" className={styles.linkBtn} onClick={actions.editTemplate}>
+              ✎ Edit template
+            </button>
+          </div>
         )}
         <div className={styles.editorMeta}>
           <label className={styles.timeField}>
@@ -275,6 +307,18 @@ export default function Editor({ page, blocks, actions, focus, onFocusHandled, o
               : ""}
           </div>
         </div>
+      )}
+
+      {repeatDialog && (
+        <RepeatDialog
+          value={page.repeat}
+          defaultStart={today}
+          onDone={(repeat: RepeatRule | null) => {
+            actions.patchPage({ repeat });
+            setRepeatDialog(false);
+          }}
+          onCancel={() => setRepeatDialog(false)}
+        />
       )}
 
       {viewer && viewerBlock && viewerBlock.images.length > 0 && (

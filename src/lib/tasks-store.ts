@@ -7,6 +7,8 @@
  * keep in step). Without env vars the page shows a "needs Supabase" state.
  */
 
+import { normalizeRule, type RepeatRule } from "./tasks-repeat";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
@@ -32,7 +34,7 @@ export type Page = {
   recipe: RecipeRow[];
   /** Pages: every recipe amount is shown × this. Templates: always 1. */
   recipe_scale: number;
-  repeat: unknown | null; // rule shape decided in step 6
+  repeat: RepeatRule | null; // templates only
   created_at: string;
 };
 
@@ -53,6 +55,15 @@ export type PageSummary = Pick<
 > & {
   todo_total: number;
   todo_done: number;
+  /** Set for an occurrence of a repeating template that nobody has touched yet. */
+  virtual?: { templateId: string; day: string };
+};
+
+/** A template with a repeat rule, plus the days its rule must skip. */
+export type RepeatingTemplate = TemplateSummary & {
+  repeat: RepeatRule;
+  todo_total: number;
+  exceptions: { occurrence_day: string; page_id: string | null }[];
 };
 
 /** What the template chooser needs. */
@@ -63,7 +74,7 @@ export type TemplateSummary = Pick<
 
 export type NewPage = Omit<Page, "created_at">;
 export type PagePatch = Partial<
-  Pick<Page, "day" | "title" | "emoji" | "start_min" | "recipe" | "recipe_scale">
+  Pick<Page, "day" | "title" | "emoji" | "start_min" | "recipe" | "recipe_scale" | "repeat">
 >;
 export type BlockPatch = Partial<Pick<Block, "position" | "kind" | "text" | "done" | "images">>;
 
@@ -112,7 +123,7 @@ const normalizePage = (v: any): Page => ({
   is_recipe: Boolean(v.is_recipe),
   recipe: Array.isArray(v.recipe) ? v.recipe.map(normalizeRow) : [],
   recipe_scale: Number(v.recipe_scale ?? 1) > 0 ? Number(v.recipe_scale ?? 1) : 1,
-  repeat: v.repeat ?? null,
+  repeat: normalizeRule(v.repeat),
   created_at: String(v.created_at ?? ""),
 });
 
@@ -149,6 +160,7 @@ const normalizeSummary = (v: any): PageSummary => {
 const base = SUPABASE_URL.replace(/\/+$/, "") + "/rest/v1";
 const pagesUrl = base + "/task_pages";
 const blocksUrl = base + "/task_blocks";
+const exceptionsUrl = base + "/task_repeat_exceptions";
 const headers = {
   apikey: SUPABASE_ANON_KEY,
   Authorization: "Bearer " + SUPABASE_ANON_KEY,
@@ -168,6 +180,11 @@ export interface TasksStore {
   listDay(day: string): Promise<PageSummary[]>;
   /** All templates, alphabetical. */
   listTemplates(): Promise<TemplateSummary[]>;
+  /** Templates with a repeat rule, with their skipped/started days. */
+  listRepeating(): Promise<RepeatingTemplate[]>;
+  /** Record that an occurrence became a page (pageId) or was skipped (null). */
+  addException(templateId: string, day: string, pageId: string | null): Promise<"ok" | "exists">;
+  getException(templateId: string, day: string): Promise<{ page_id: string | null } | null>;
   /** Real pages with no day, in sidebar order. */
   listUndated(): Promise<PageSummary[]>;
   getPage(id: string): Promise<{ page: Page; blocks: Block[] } | null>;
@@ -207,6 +224,60 @@ export const store: TasksStore = {
         created_at: p.created_at,
       };
     });
+  },
+  async listRepeating() {
+    const r = await check(
+      await fetch(
+        `${pagesUrl}?select=id,title,emoji,is_recipe,repeat,start_min,created_at,task_blocks(kind),task_repeat_exceptions!template_id(occurrence_day,page_id)&kind=eq.template&repeat=not.is.null`,
+        { headers }
+      )
+    );
+    const out: RepeatingTemplate[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const v of (await r.json()) as any[]) {
+      const p = normalizePage(v);
+      if (!p.repeat) continue;
+      const blocks: unknown[] = Array.isArray(v.task_blocks) ? v.task_blocks : [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ex: any[] = Array.isArray(v.task_repeat_exceptions) ? v.task_repeat_exceptions : [];
+      out.push({
+        id: p.id,
+        title: p.title,
+        emoji: p.emoji,
+        is_recipe: p.is_recipe,
+        repeat: p.repeat,
+        start_min: p.start_min,
+        created_at: p.created_at,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        todo_total: blocks.filter((b: any) => b.kind === "todo").length,
+        exceptions: ex.map((e) => ({
+          occurrence_day: String(e.occurrence_day),
+          page_id: e.page_id ? String(e.page_id) : null,
+        })),
+      });
+    }
+    return out;
+  },
+  async addException(templateId, day, pageId) {
+    const r = await fetch(exceptionsUrl, {
+      method: "POST",
+      headers: { ...headers, Prefer: "return=minimal" },
+      body: JSON.stringify([{ template_id: templateId, occurrence_day: day, page_id: pageId }]),
+    });
+    if (r.status === 409) return "exists";
+    await check(r);
+    return "ok";
+  },
+  async getException(templateId, day) {
+    const r = await check(
+      await fetch(
+        `${exceptionsUrl}?select=page_id&template_id=eq.${encodeURIComponent(templateId)}&occurrence_day=eq.${day}&limit=1`,
+        { headers }
+      )
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (await r.json()) as any[];
+    return rows.length ? { page_id: rows[0].page_id ? String(rows[0].page_id) : null } : null;
   },
   async listUndated() {
     const r = await check(

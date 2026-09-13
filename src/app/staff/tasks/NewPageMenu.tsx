@@ -2,22 +2,35 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import type { TemplateSummary } from "@/lib/tasks-store";
+import {
+  presetLabel,
+  presetOf,
+  presetRule,
+  summary,
+  type PresetKey,
+  type RepeatRule,
+} from "@/lib/tasks-repeat";
+import RepeatDialog from "./RepeatDialog";
 import styles from "./tasks.module.css";
 
 type Props = {
   label: string;
+  /** Anchor for repeat presets (today). */
+  today: string;
   loadTemplates: () => Promise<TemplateSummary[]>;
   onBlank: () => void;
   onFromTemplate: (templateId: string) => void;
   onEditTemplate: (templateId: string) => void;
-  onCreateTemplate: (name: string, isRecipe: boolean) => void;
+  onCreateTemplate: (name: string, isRecipe: boolean, repeat: RepeatRule | null) => void;
 };
 
 type View = "main" | "templates" | "new";
+const QUICK: PresetKey[] = ["none", "daily", "weekday", "weekly", "monthly", "custom"];
 
 /** The "+" button: blank page, or from a template (use / edit / create one). */
 export default function NewPageMenu({
   label,
+  today,
   loadTemplates,
   onBlank,
   onFromTemplate,
@@ -30,6 +43,8 @@ export default function NewPageMenu({
   const [loadError, setLoadError] = useState(false);
   const [name, setName] = useState("");
   const [isRecipe, setIsRecipe] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatRule | null>(null);
+  const [dialog, setDialog] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -38,6 +53,8 @@ export default function NewPageMenu({
     setView("main");
     setName("");
     setIsRecipe(false);
+    setRepeat(null);
+    setDialog(false);
   };
   const showTemplates = () => {
     setTemplates(null);
@@ -48,10 +65,11 @@ export default function NewPageMenu({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
+      if (dialog) return; // the repeat dialog sits outside the popover
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape" && !dialog) close();
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("touchstart", onDown);
@@ -61,7 +79,7 @@ export default function NewPageMenu({
       document.removeEventListener("touchstart", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, dialog]);
 
   // Templates are fetched when the list is shown, so it's always current.
   useEffect(() => {
@@ -87,9 +105,11 @@ export default function NewPageMenu({
   const submitNew = () => {
     const n = name.trim();
     if (!n) return;
-    onCreateTemplate(n, isRecipe);
+    onCreateTemplate(n, isRecipe, repeat);
     close();
   };
+
+  const repeatPreset = presetOf(repeat);
 
   return (
     <div className={styles.menuRoot} ref={rootRef}>
@@ -147,6 +167,11 @@ export default function NewPageMenu({
                         <span className={styles.popRowEmoji}>{t.emoji || "📄"}</span>
                         <span className={styles.popRowTitle}>{t.title || "Untitled"}</span>
                         {t.is_recipe && <span className={styles.tag}>Recipe</span>}
+                        {t.repeat && (
+                          <span className={styles.repeatMark} title={summary(t.repeat)}>
+                            ↻
+                          </span>
+                        )}
                       </button>
                       <button
                         type="button"
@@ -200,6 +225,29 @@ export default function NewPageMenu({
                 />
                 Is this a recipe?
               </label>
+              <label className={styles.popSelectRow}>
+                <span>Repeats</span>
+                <select
+                  value={repeatPreset}
+                  onChange={(e) => {
+                    const key = e.target.value as PresetKey;
+                    if (key === "custom") setDialog(true);
+                    else setRepeat(presetRule(key, today));
+                  }}
+                  aria-label="Repeats"
+                >
+                  {QUICK.map((k) => (
+                    <option key={k} value={k}>
+                      {k === "custom" && repeatPreset === "custom" ? summary(repeat) : presetLabel(k, today)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {repeatPreset === "custom" && (
+                <button type="button" className={styles.linkBtn} onClick={() => setDialog(true)}>
+                  Change…
+                </button>
+              )}
               <div className={styles.popActions}>
                 <button type="button" className={styles.popItemSmall} onClick={showTemplates}>
                   Back
@@ -211,6 +259,17 @@ export default function NewPageMenu({
             </form>
           )}
         </div>
+      )}
+      {dialog && (
+        <RepeatDialog
+          value={repeat}
+          defaultStart={today}
+          onDone={(rule) => {
+            setRepeat(rule);
+            setDialog(false);
+          }}
+          onCancel={() => setDialog(false)}
+        />
       )}
     </div>
   );

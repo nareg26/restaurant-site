@@ -16,6 +16,7 @@ import {
   type PageSummary,
 } from "@/lib/tasks-store";
 import { uploadImage } from "@/lib/tasks-images";
+import { occursOn, parseVirtualId, virtualId, type RepeatRule } from "@/lib/tasks-repeat";
 import { addDays, fmtMin, fromISODate, toISODate } from "@/lib/time";
 import Editor, { type EditorActions, type Focus } from "./Editor";
 import NewPageMenu from "./NewPageMenu";
@@ -25,7 +26,13 @@ import styles from "./tasks.module.css";
 const POLL_MS = 5000;
 const SAVE_DEBOUNCE_MS = 400;
 
-type OpenPage = { page: Page; blocks: Block[] };
+/** `virtual` = an occurrence of a repeating template nobody has touched; the
+ *  page and blocks exist only locally (with the ids they'll get on the server). */
+type OpenPage = {
+  page: Page;
+  blocks: Block[];
+  virtual?: { templateId: string; day: string; key: string };
+};
 type Lists = { day: string; dated: PageSummary[]; undated: PageSummary[] };
 type Status = { kind: "" | "ok" | "busy" | "err"; msg: string };
 
@@ -34,6 +41,43 @@ const weekdayOf = (iso: string) =>
 const dateOf = (iso: string) =>
   fromISODate(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 const dayShort = (iso: string) => fromISODate(iso).toLocaleDateString("en-GB", { weekday: "short" });
+
+const emptyBlock = (pageId: string): Block => ({
+  id: newId(),
+  page_id: pageId,
+  position: 1,
+  kind: "text",
+  text: "",
+  done: false,
+  images: [],
+});
+
+/** A fresh, independent copy of a template: new ids, ticks cleared, scale 1. */
+function buildCopy(t: { page: Page; blocks: Block[] }, targetDay: string | null) {
+  const id = newId();
+  const page: Page = {
+    id,
+    kind: "page",
+    day: targetDay,
+    title: t.page.title,
+    emoji: t.page.emoji,
+    start_min: t.page.start_min,
+    template_id: t.page.id,
+    is_recipe: t.page.is_recipe,
+    recipe: t.page.recipe,
+    recipe_scale: 1,
+    repeat: null,
+    created_at: new Date().toISOString(),
+  };
+  const copied = t.blocks.map((b) => ({ ...b, id: newId(), page_id: id, done: false }));
+  return { page, blocks: copied.length ? copied : [emptyBlock(id)] };
+}
+
+const stripCreated = (page: Page) => {
+  const { created_at: _c, ...rest } = page;
+  void _c;
+  return rest;
+};
 
 export default function Tasks() {
   const router = useRouter();
@@ -67,6 +111,12 @@ export default function Tasks() {
   useEffect(() => {
     dayRef.current = day;
   }, [day]);
+  // What the URL says (or is about to say): two go() calls in one tick must
+  // build on each other, not on a stale searchParams snapshot.
+  const urlRef = useRef({ day: params.get("day"), page: params.get("page") });
+  useEffect(() => {
+    urlRef.current = { day: params.get("day"), page: params.get("page") };
+  }, [params]);
 
   // Writes run one after another, in order, so an insert can never race a
   // patch to the same row. `inflight` counts queued+running writes.
@@ -128,24 +178,45 @@ export default function Tasks() {
   const go = useCallback(
     (next: { day?: string | null; page?: string | null }) => {
       flushAll();
-      const d = next.day === undefined ? params.get("day") || today : next.day;
-      const p = next.page === undefined ? params.get("page") : next.page;
+      const d = next.day === undefined ? urlRef.current.day || today : next.day;
+      const p = next.page === undefined ? urlRef.current.page : next.page;
+      urlRef.current = { day: d, page: p };
       const q = new URLSearchParams();
       if (d) q.set("day", d);
       if (p) q.set("page", p);
       const qs = q.toString();
       router.replace(`/staff/tasks${qs ? "?" + qs : ""}`, { scroll: false });
     },
-    [flushAll, params, router, today]
+    [flushAll, router, today]
   );
 
   /* ----- loading ----- */
   const refreshLists = useCallback(async (quiet = true) => {
     const d = dayRef.current;
     try {
-      const [a, b] = await Promise.all([store.listDay(d), store.listUndated()]);
+      const [a, b, repeating] = await Promise.all([
+        store.listDay(d),
+        store.listUndated(),
+        store.listRepeating(),
+      ]);
       if (dayRef.current !== d) return; // day changed while loading
-      setLists({ day: d, dated: a, undated: b });
+      // Occurrences the rules produce for this day, minus the ones already
+      // started (they're real pages in `a`) or skipped.
+      const virtual: PageSummary[] = repeating
+        .filter((t) => occursOn(t.repeat, d) && !t.exceptions.some((e) => e.occurrence_day === d))
+        .map((t) => ({
+          id: virtualId(t.id, d),
+          day: d,
+          title: t.title,
+          emoji: t.emoji,
+          start_min: t.start_min,
+          template_id: t.id,
+          created_at: t.created_at,
+          todo_total: t.todo_total,
+          todo_done: 0,
+          virtual: { templateId: t.id, day: d },
+        }));
+      setLists({ day: d, dated: [...a, ...virtual].sort(bySidebarOrder), undated: b });
       setBanner(null);
       // A quiet poll that succeeds also clears an earlier connection error.
       setStatus((s) => (quiet && s.kind !== "err" ? s : { kind: "ok", msg: "Synced" }));
@@ -166,7 +237,7 @@ export default function Tasks() {
 
   const refreshOpen = useCallback(async () => {
     const cur = openRef.current;
-    if (!cur) return;
+    if (!cur || cur.virtual) return; // a virtual page has nothing on the server yet
     // Never overwrite local edits that haven't reached the server yet.
     if (inflightRef.current > 0 || hasPending()) return;
     try {
@@ -203,8 +274,30 @@ export default function Tasks() {
   // isn't refetched; the poll keeps it fresh.
   useEffect(() => {
     if (!SHARED || !pageId) return;
-    if (openRef.current?.page.id === pageId) return;
+    if (openRef.current?.page.id === pageId || openRef.current?.virtual?.key === pageId) return;
     let cancelled = false;
+    const v = parseVirtualId(pageId);
+    if (v) {
+      // Show the template's content as this day's page; it becomes real on first edit.
+      store
+        .getPage(v.templateId)
+        .then((t) => {
+          if (cancelled) return;
+          if (!t || t.page.kind !== "template") {
+            setOpenStateKind("missing");
+            return;
+          }
+          setOpen({ ...buildCopy(t, v.day), virtual: { ...v, key: pageId } });
+          setOpenStateKind("idle");
+        })
+        .catch((e) => {
+          console.error(e);
+          if (!cancelled) setOpenStateKind("missing");
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
     store
       .getPage(pageId)
       .then((res) => {
@@ -222,7 +315,7 @@ export default function Tasks() {
   }, [pageId]);
 
   // The page shown is whatever we hold, as long as the URL still points at it.
-  const shown = open && open.page.id === pageId ? open : null;
+  const shown = open && (open.page.id === pageId || open.virtual?.key === pageId) ? open : null;
 
   // Poll while visible, and flush unsaved edits when the tab goes away.
   useEffect(() => {
@@ -260,20 +353,9 @@ export default function Tasks() {
     go({ page: null });
   };
 
-  const emptyBlock = (pageId: string): Block => ({
-    id: newId(),
-    page_id: pageId,
-    position: 1,
-    kind: "text",
-    text: "",
-    done: false,
-    images: [],
-  });
-
   /** Show a page we just built locally, persist it, and open it. */
   const openNew = (page: Page, blocks: Block[], focusTitle: boolean) => {
-    const { created_at: _c, ...newPage } = page;
-    void _c;
+    const newPage = stripCreated(page);
     setOpen({ page, blocks });
     setOpenStateKind("idle");
     enqueue(async () => {
@@ -303,7 +385,7 @@ export default function Tasks() {
     openNew(page, [emptyBlock(id)], true);
   };
 
-  const createTemplate = (name: string, isRecipe: boolean) => {
+  const createTemplate = (name: string, isRecipe: boolean, repeat: RepeatRule | null) => {
     const id = newId();
     const page: Page = {
       id,
@@ -316,7 +398,7 @@ export default function Tasks() {
       is_recipe: isRecipe,
       recipe: [],
       recipe_scale: 1,
-      repeat: null,
+      repeat,
       created_at: new Date().toISOString(),
     };
     openNew(page, [emptyBlock(id)], false);
@@ -331,34 +413,75 @@ export default function Tasks() {
         setStatus({ kind: "err", msg: "That template no longer exists" });
         return;
       }
-      const id = newId();
-      const page: Page = {
-        id,
-        kind: "page",
-        day: targetDay,
-        title: t.page.title,
-        emoji: t.page.emoji,
-        start_min: t.page.start_min,
-        template_id: t.page.id,
-        is_recipe: t.page.is_recipe,
-        recipe: t.page.recipe,
-        recipe_scale: 1,
-        repeat: null,
-        created_at: new Date().toISOString(),
-      };
-      const copied = t.blocks.map((b) => ({ ...b, id: newId(), page_id: id, done: false }));
-      const blocks = copied.length ? copied : [emptyBlock(id)];
-      const { created_at: _c, ...newPage } = page;
-      void _c;
-      await store.createPage(newPage, blocks);
+      const { page, blocks } = buildCopy(t, targetDay);
+      await store.createPage(stripCreated(page), blocks);
       setOpen({ page, blocks });
       setOpenStateKind("idle");
-      go({ page: id });
+      go({ page: page.id });
       await refreshLists();
     });
   };
 
+  /* ----- repeating occurrences ----- */
+
+  /** First edit of a virtual page: write it (and its exception) to the server. */
+  const ensureReal = () => {
+    const cur = openRef.current;
+    if (!cur?.virtual) return;
+    const { templateId, day: occDay } = cur.virtual;
+    const { page, blocks } = cur;
+    setOpen({ page, blocks });
+    go({ page: page.id });
+    enqueue(async () => {
+      await store.createPage(stripCreated(page), blocks);
+      const res = await store.addException(templateId, occDay, page.id);
+      if (res === "exists") {
+        // Another device started this occurrence first: keep theirs, drop ours.
+        const ex = await store.getException(templateId, occDay);
+        await store.deletePage(page.id);
+        setStatus({ kind: "err", msg: "Someone else started this page first — showing theirs" });
+        if (openRef.current?.page.id === page.id) {
+          setOpen(null);
+          go({ page: ex?.page_id ?? null });
+        }
+      }
+      await refreshLists();
+    });
+  };
+
+  /** "Skip this day": the rule stops producing this occurrence. */
+  const skipOccurrence = (templateId: string, occDay: string, key: string, label: string) => {
+    if (!confirm(`Skip “${label || "Untitled"}” for ${dateOf(occDay)}? It won’t come back on that day.`))
+      return;
+    setLists((l) => ({ ...l, dated: l.dated.filter((p) => p.id !== key) }));
+    if (openRef.current?.virtual?.key === key) closeOpen();
+    enqueue(async () => {
+      await store.addException(templateId, occDay, null);
+      await refreshLists();
+    });
+  };
+
+  /** Moving an untouched occurrence makes it a real page on the new day. */
+  const moveOccurrence = (templateId: string, occDay: string, key: string, targetDay: string | null) => {
+    setLists((l) => ({ ...l, dated: l.dated.filter((p) => p.id !== key) }));
+    if (openRef.current?.virtual?.key === key) closeOpen();
+    enqueue(async () => {
+      const t = await store.getPage(templateId);
+      if (!t) return;
+      const { page, blocks } = buildCopy(t, targetDay);
+      await store.createPage(stripCreated(page), blocks);
+      await store.addException(templateId, occDay, page.id); // "exists" = already handled elsewhere
+      await refreshLists();
+    });
+    if (targetDay && targetDay !== day) go({ day: targetDay });
+  };
+
   const movePageById = (id: string, targetDay: string | null) => {
+    const v = parseVirtualId(id);
+    if (v) {
+      moveOccurrence(v.templateId, v.day, id, targetDay);
+      return;
+    }
     flushAll();
     const cur = openRef.current;
     if (cur?.page.id === id) setOpen({ ...cur, page: { ...cur.page, day: targetDay } });
@@ -382,8 +505,16 @@ export default function Tasks() {
     if (targetDay && targetDay !== day) go({ day: targetDay });
   };
 
-  const deletePageById = (id: string, label: string) => {
-    if (!confirm(`Delete “${label || "Untitled"}”? This can’t be undone.`)) return;
+  const deletePageById = (id: string, label: string, repeats = false) => {
+    const v = parseVirtualId(id);
+    if (v) {
+      skipOccurrence(v.templateId, v.day, id, label);
+      return;
+    }
+    const msg = repeats
+      ? `Delete “${label || "Untitled"}”? Future repeats stop appearing; pages already started stay.`
+      : `Delete “${label || "Untitled"}”? This can’t be undone.`;
+    if (!confirm(msg)) return;
     for (const b of openRef.current?.page.id === id ? openRef.current.blocks : []) {
       const t = textTimers.current.get(b.id);
       if (t) clearTimeout(t);
@@ -405,6 +536,7 @@ export default function Tasks() {
 
   const actions: EditorActions = {
     patchPage(patch) {
+      ensureReal();
       const cur = openRef.current;
       if (!cur) return;
       setOpen({ ...cur, page: { ...cur.page, ...patch } });
@@ -418,6 +550,7 @@ export default function Tasks() {
       }, SAVE_DEBOUNCE_MS);
     },
     setBlockText(id, text) {
+      ensureReal();
       commitBlocks((bs) => bs.map((b) => (b.id === id ? { ...b, text } : b)));
       pendingText.current.set(id, text);
       const t = textTimers.current.get(id);
@@ -429,6 +562,7 @@ export default function Tasks() {
       );
     },
     setBlockKind(id, kind) {
+      ensureReal();
       commitBlocks((bs) => bs.map((b) => (b.id === id ? { ...b, kind } : b)));
       flushBlock(id);
       enqueue(async () => {
@@ -437,6 +571,7 @@ export default function Tasks() {
       });
     },
     toggleDone(id, done) {
+      ensureReal();
       commitBlocks((bs) => bs.map((b) => (b.id === id ? { ...b, done } : b)));
       enqueue(async () => {
         await store.updateBlock(id, { done });
@@ -444,6 +579,7 @@ export default function Tasks() {
       });
     },
     insertAfter(afterId, kind, text) {
+      ensureReal();
       const cur = openRef.current;
       if (!cur) return "";
       const blocks = cur.blocks;
@@ -468,6 +604,7 @@ export default function Tasks() {
       return block.id;
     },
     deleteBlock(id) {
+      ensureReal();
       const t = textTimers.current.get(id);
       if (t) clearTimeout(t);
       textTimers.current.delete(id);
@@ -480,6 +617,7 @@ export default function Tasks() {
       });
     },
     mergeIntoPrevious(id) {
+      ensureReal();
       const cur = openRef.current;
       if (!cur) return null;
       const idx = cur.blocks.findIndex((b) => b.id === id);
@@ -509,17 +647,22 @@ export default function Tasks() {
       return { prevId: prev.id, offset };
     },
     movePage(targetDay) {
+      ensureReal();
       const cur = openRef.current;
       if (cur) movePageById(cur.page.id, targetDay);
     },
     deletePage() {
       const cur = openRef.current;
-      if (cur) deletePageById(cur.page.id, `${cur.page.emoji} ${cur.page.title}`.trim());
+      if (!cur) return;
+      const label = `${cur.page.emoji} ${cur.page.title}`.trim();
+      if (cur.virtual) skipOccurrence(cur.virtual.templateId, cur.virtual.day, cur.virtual.key, label);
+      else deletePageById(cur.page.id, label, cur.page.kind === "template" && Boolean(cur.page.repeat));
     },
     setFocusedBlock(id) {
       focusedBlockRef.current = id;
     },
     async addImages(id, files) {
+      ensureReal();
       // Uploads run in parallel; the block is updated once they've all landed.
       const refs = await Promise.all(files.map(uploadImage));
       const b = openRef.current?.blocks.find((x) => x.id === id);
@@ -537,6 +680,7 @@ export default function Tasks() {
       if (cur?.page.template_id) go({ page: cur.page.template_id });
     },
     removeImage(id, imageId) {
+      ensureReal();
       const b = openRef.current?.blocks.find((x) => x.id === id);
       if (!b) return;
       const images = b.images.filter((i) => i.id !== imageId);
@@ -621,6 +765,7 @@ export default function Tasks() {
           onOpen={(id) => go({ page: id })}
           onMove={movePageById}
           onDelete={deletePageById}
+          today={today}
         />
         <Section
           title="No date"
@@ -634,6 +779,7 @@ export default function Tasks() {
           onOpen={(id) => go({ page: id })}
           onMove={movePageById}
           onDelete={deletePageById}
+          today={today}
         />
 
         <div className={styles.sideFoot}>
@@ -656,6 +802,8 @@ export default function Tasks() {
             onFocusHandled={() => setFocus(null)}
             onBack={closeOpen}
             dayLabel={isToday ? "today" : `${dayShort(day)} ${dateOf(day)}`}
+            today={today}
+            virtual={Boolean(shown.virtual)}
           />
         ) : pageId && openState !== "missing" ? (
           <div className={styles.placeholder} />
@@ -686,8 +834,9 @@ type SectionProps = {
   onBlank: () => void;
   onFromTemplate: (templateId: string) => void;
   onEditTemplate: (templateId: string) => void;
-  onCreateTemplate: (name: string, isRecipe: boolean) => void;
+  onCreateTemplate: (name: string, isRecipe: boolean, repeat: RepeatRule | null) => void;
   onOpen: (id: string) => void;
+  today: string;
   onMove: (id: string, day: string | null) => void;
   onDelete: (id: string, label: string) => void;
 };
@@ -706,6 +855,7 @@ function Section({
   onOpen,
   onMove,
   onDelete,
+  today,
 }: SectionProps) {
   return (
     <section className={styles.section}>
@@ -713,6 +863,7 @@ function Section({
         <h2>{title}</h2>
         <NewPageMenu
           label={`Add page: ${title}`}
+          today={today}
           loadTemplates={loadTemplates}
           onBlank={onBlank}
           onFromTemplate={onFromTemplate}
@@ -728,11 +879,22 @@ function Section({
             const pct = p.todo_total ? Math.round((p.todo_done / p.todo_total) * 100) : 0;
             const label = `${p.emoji} ${p.title}`.trim();
             return (
-              <li key={p.id} className={`${styles.item} ${p.id === openId ? styles.itemOn : ""}`}>
-                <button type="button" className={styles.itemMain} onClick={() => onOpen(p.id)}>
+              <li
+                key={p.id}
+                className={`${styles.item} ${p.id === openId ? styles.itemOn : ""} ${
+                  p.virtual ? styles.itemVirtual : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  className={styles.itemMain}
+                  onClick={() => onOpen(p.id)}
+                  title={p.virtual ? "Repeats from a template — not started yet" : undefined}
+                >
                   <span className={styles.itemEmoji}>{p.emoji || "📄"}</span>
                   <span className={styles.itemBody}>
                     <span className={`${styles.itemTitle} ${p.title ? "" : styles.untitled}`}>
+                      {p.virtual && <span className={styles.virtIcon}>↻</span>}
                       {p.title || "Untitled"}
                     </span>
                     {(p.start_min !== null || p.todo_total > 0) && (
@@ -761,6 +923,7 @@ function Section({
                   onDelete={() => onDelete(p.id, label)}
                   align="right"
                   label={`Menu for ${label || "Untitled"}`}
+                  deleteLabel={p.virtual ? "Skip this day" : "Delete"}
                 />
               </li>
             );

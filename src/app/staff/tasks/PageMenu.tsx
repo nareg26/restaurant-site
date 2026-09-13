@@ -14,6 +14,8 @@ type Props = {
   label?: string;
   /** Templates can't be moved to a day. */
   canMove?: boolean;
+  /** "Delete" normally; "Skip this day" for an untouched repeat occurrence. */
+  deleteLabel?: string;
 };
 
 /** The "⋯" context menu shared by sidebar thumbnails and the open page. */
@@ -24,6 +26,7 @@ export default function PageMenu({
   align = "right",
   label,
   canMove = true,
+  deleteLabel = "Delete",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"main" | "move">("main");
@@ -97,7 +100,7 @@ export default function PageMenu({
                   onDelete();
                 }}
               >
-                Delete
+                {deleteLabel}
               </button>
             </>
           ) : (

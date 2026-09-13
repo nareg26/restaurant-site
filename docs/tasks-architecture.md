@@ -190,23 +190,32 @@ would replace the poll with no schema change.
 ## Repeating pages (step 6)
 
 - `task_pages.repeat` on a template is our own JSON, shaped after Google
-  Calendar's dialog (exact fields decided with your screenshots), roughly:
-  `{ freq: "daily"|"weekly"|"monthly", interval: 1, byWeekday: [1,3],
-     start: "2026-09-15", end: null | { until: "…" } | { count: n } }`.
-- For a day D, the sidebar computes which repeating templates hit D and drops
-  any with a row in `task_repeat_exceptions` for D. Untouched occurrences are
-  **virtual**: they render from the template (so template edits show up) and
-  have no page row.
-- **Materialize** on first interaction (edit, tick, move, delete):
-  1. Create the page (copy of template, `template_id` set, `day = D`).
-  2. Insert the exception `(template_id, D, page_id)`.
-  3. If step 2 fails with a unique violation, another device got there
-     first: delete the page from step 1 and open the existing `page_id`.
-  A materialized occurrence that is later moved keeps its exception on the
+  Calendar's dialog (agreed 2026-09-13), with one addition: a **start
+  date**, because a template has no date of its own.
+  `{ freq: "daily"|"weekly"|"monthly"|"yearly", interval: 1,
+     start: "2026-09-14", weekdays: [1,2,3,4,5], monthly: "day"|"weekday",
+     end: { kind: "never" } | { kind: "on", date } | { kind: "after", count } }`
+  Daily also carries `weekdays`, so "every day except Monday" is Daily with
+  six days ticked. The quick menu offers Does not repeat / Daily / Every
+  weekday / Weekly on <weekday of start> / Monthly on the nth <weekday> /
+  Custom; the rule is shown in plain words ("Every 2 weeks on Tue and Fri,
+  until 31 Dec 2026") on the template's chip and in the dialog.
+- For a day D, the sidebar loads templates with a rule (with their
+  exceptions embedded), keeps those whose rule hits D and that have no
+  exception row for D, and lists them as **virtual** occurrences: ↻ icon,
+  lighter title, ordered by the template's start time among the real
+  pages. Opening one shows a local copy of the template (new ids already
+  assigned, ticks cleared) marked "Not started"; nothing is written.
+- **Materialize** on the first edit (typing, ticking, photo, move, time,
+  emoji…): the local copy is inserted as the page, then the exception
+  `(template_id, D, page_id)` is inserted. A unique violation means another
+  device got there first: our page is deleted and theirs is opened. A
+  materialized occurrence that is later moved keeps its exception on the
   original day, so nothing reappears there.
-- **Delete a virtual occurrence** = insert `(template_id, D, null)`.
-- Changing the rule only affects future virtual occurrences. Materialized
-  pages are ordinary pages by then.
+- **Skip this day** on a virtual occurrence inserts `(template_id, D, null)`.
+- Changing the rule only affects untouched occurrences. Deleting a template
+  warns that future repeats stop; pages already started stay (their
+  `template_id` goes null via the FK).
 
 ## Code layout
 
@@ -222,6 +231,8 @@ would replace the poll with no schema change.
 | `src/app/staff/tasks/RecipeTable.tsx` | Ingredient table: editable on templates, scale-by-base-row on pages |
 | `src/app/staff/tasks/blockText.ts` | Block text ⇄ contentEditable DOM with pills; caret offset mapping |
 | `src/lib/tasks-recipe.ts` | Tokens, amount formatting, scaling helpers |
+| `src/lib/tasks-repeat.ts` | Rule type, occurrence maths, presets, plain-words summary |
+| `src/app/staff/tasks/RepeatDialog.tsx` | The recurrence editor |
 | `supabase/tasks.sql` | The table SQL above, ready to paste into the SQL editor |
 | `supabase/task-images.sql` | Bucket + storage policies |
 

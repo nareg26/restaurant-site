@@ -450,6 +450,8 @@
   flex-direction: column;
   gap: 8px;
   padding: 0 4px 4px;
+  width: 252px; /* a select's long options must not widen the popover */
+  max-width: calc(100vw - 48px);
 }
 .popForm input[type="text"],
 .popForm input:not([type]) {
@@ -487,6 +489,188 @@
   border-radius: 999px;
   padding: 3px 8px;
   line-height: 1.2;
+}
+
+/* ---------- repeat: chip, dialog, virtual items ---------- */
+
+.repeatChip {
+  border: 1px dashed var(--line);
+  background: none;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 13px;
+}
+.repeatChip:hover {
+  background: #f1efeb;
+}
+.repeatOn {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+.repeatMark {
+  color: var(--accent);
+  font-size: 14px;
+  margin-left: 2px;
+}
+.itemVirtual .itemTitle {
+  color: #6b6f76;
+  font-weight: 450;
+}
+.itemVirtual .itemEmoji {
+  opacity: 0.7;
+}
+.virtIcon {
+  font-size: 11px;
+  color: var(--accent);
+  margin-right: 4px;
+}
+.popSelectRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 0 4px;
+}
+.popSelectRow select {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.modalBack {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(20, 20, 20, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+}
+.modalTitle {
+  margin: 0;
+  font-size: 20px;
+}
+.mRow {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.mRow > span:first-child {
+  color: var(--muted);
+}
+.mRow input,
+.mRow select,
+.modal input,
+.modal select {
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+  color-scheme: light;
+  min-width: 0;
+}
+.mInline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.mNum {
+  width: 76px;
+}
+.custom {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.dayCircles {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dayCircle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.dayOn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ends {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  min-height: 36px;
+}
+.radio input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  margin: 0;
+}
+.radio input:disabled {
+  opacity: 0.5;
+}
+.summaryLine {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.muted {
+  color: var(--muted);
+  font-weight: 400;
+}
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* ---------- editor ---------- */
