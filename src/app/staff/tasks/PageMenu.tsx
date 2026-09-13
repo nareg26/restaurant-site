@@ -118,7 +118,7 @@ export default function PageMenu({
               )}
               {currentDay !== null && (
                 <button type="button" className={styles.popItem} onClick={() => move(null)}>
-                  No date
+                  Ongoing
                 </button>
               )}
               <div className={styles.popDateRow}>

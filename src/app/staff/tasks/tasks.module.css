@@ -559,7 +559,7 @@
 }
 .modal {
   width: 100%;
-  max-width: 440px;
+  max-width: 540px;
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
   background: var(--card);
@@ -577,7 +577,7 @@
 }
 .mRow {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 104px 1fr;
   align-items: center;
   gap: 10px;
   font-size: 14px;
@@ -1393,5 +1393,17 @@
   }
   .rtTools button {
     width: 30px;
+  }
+  /* Repeat dialog: label above the field, smaller circles, so 7 fit in a row. */
+  .mRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .dayCircle {
+    width: 32px;
+    height: 32px;
+  }
+  .dayCircles {
+    gap: 4px;
   }
 }

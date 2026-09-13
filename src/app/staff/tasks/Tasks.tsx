@@ -768,10 +768,10 @@ export default function Tasks() {
           today={today}
         />
         <Section
-          title="No date"
+          title="Ongoing"
           items={undated}
           openId={pageId}
-          empty="Pages without a day live here."
+          empty="Pages that aren’t tied to a day live here."
           onBlank={() => createBlank(null)}
           onFromTemplate={(tid) => createFromTemplate(tid, null)}
           onEditTemplate={(tid) => go({ page: tid })}
