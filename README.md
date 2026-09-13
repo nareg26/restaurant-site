@@ -10,6 +10,8 @@ Website and staff tools for the restaurant. Built with [Next.js](https://nextjs.
 | `/staff/schedule` | Weekly calendar of shifts (drag to create, drag edges to resize), shared via Supabase |
 | `/staff/shift?id=…` | Expanded view of one shift: times, person, notes, checklist |
 | `/staff/preferences` | Poll: staff mark which open shifts they want and spend points on favourites |
+| `/admin/preferences` | Set up the shifts being voted on each week |
+| `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists); pages can be dated or undated |
 
 ## Local development
 
@@ -74,8 +76,15 @@ create policy "public write"  on shift_prefs for insert with check (true);
 create policy "public update" on shift_prefs for update using (true);
 ```
 
-The days/slots being voted on live in `src/lib/prefs-config.ts` — edit that
-file when a new round of open shifts comes up.
+The days/slots being voted on live in the `pref_slots` table and are set up
+from `/admin/preferences` each week.
+
+5. For `/staff/tasks`, run [`supabase/tasks.sql`](supabase/tasks.sql) in the
+   SQL editor. It creates `task_pages`, `task_blocks` and
+   `task_repeat_exceptions` with the same open policies. The data model is
+   explained in [`docs/tasks-architecture.md`](docs/tasks-architecture.md).
+   Unlike the other tools, Tasks has no browser-only fallback: it needs
+   Supabase.
 
 > **On IDs:** there is no authentication. Anyone who knows a number can view
 > and overwrite that person's answers, so hand out numbers that aren't trivially

@@ -14,6 +14,9 @@ export default function Home() {
           <li>
             <Link href="/staff/preferences">🗳️ Open-shift preferences</Link>
           </li>
+          <li>
+            <Link href="/staff/tasks">📋 Tasks</Link>
+          </li>
         </ul>
       </main>
     </div>
