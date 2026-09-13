@@ -582,6 +582,13 @@
 .mRow > span:first-child {
   color: var(--muted);
 }
+/* A label beside a stack of options sits level with the first option. */
+.mRowTop {
+  align-items: start;
+}
+.mRowTop > span:first-child {
+  padding-top: 8px;
+}
 .mRow input,
 .mRow select,
 .modal input,

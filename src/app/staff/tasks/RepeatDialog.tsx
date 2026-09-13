@@ -183,7 +183,7 @@ export default function RepeatDialog({ value, defaultStart, onDone, onCancel }: 
               </div>
             )}
 
-            <div className={styles.mRow}>
+            <div className={`${styles.mRow} ${styles.mRowTop}`}>
               <span>Ends</span>
               <div className={styles.ends}>
                 <label className={styles.radio}>
