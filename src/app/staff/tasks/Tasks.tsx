@@ -831,11 +831,13 @@ export default function Tasks() {
                 onClick={toggleTemplates}
                 aria-expanded={templatesOpen}
               >
-                <span className={styles.chev}>{templatesOpen ? "▾" : "▸"}</span>
                 Templates
                 {lists.templates.length > 0 && (
                   <span className={styles.countBadge}>{lists.templates.length}</span>
                 )}
+                <span className={styles.chev} aria-hidden="true">
+                  {templatesOpen ? "▾" : "▸"}
+                </span>
               </button>
             </h2>
             <NewPageMenu
