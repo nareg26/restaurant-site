@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -33,6 +33,9 @@ type OpenPage = {
   page: Page;
   blocks: Block[];
   virtual?: { templateId: string; day: string; key: string };
+  /** The virtual id this page was opened under, kept after it became real so
+   *  the editor stays mounted during the render before the URL catches up. */
+  alias?: string;
 };
 type Lists = {
   day: string;
@@ -41,7 +44,30 @@ type Lists = {
   templates: TemplateSummary[];
 };
 
+/* The Templates section's collapsed state lives in localStorage. Read through
+   useSyncExternalStore so the server render (no storage) and the first client
+   render agree, then the stored value takes over without a hydration mismatch. */
 const TEMPLATES_OPEN_KEY = "tasks-templates-open";
+const openListeners = new Set<() => void>();
+const subscribeTemplatesOpen = (l: () => void) => {
+  openListeners.add(l);
+  return () => {
+    openListeners.delete(l);
+  };
+};
+const readTemplatesOpen = () => {
+  try {
+    return localStorage.getItem(TEMPLATES_OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+const writeTemplatesOpen = (v: boolean) => {
+  try {
+    localStorage.setItem(TEMPLATES_OPEN_KEY, v ? "1" : "0");
+  } catch {}
+  openListeners.forEach((l) => l());
+};
 type Status = { kind: "" | "ok" | "busy" | "err"; msg: string };
 
 const weekdayOf = (iso: string) =>
@@ -101,21 +127,8 @@ export default function Tasks() {
   // never shows the previous day's pages while the new ones load.
   const [lists, setLists] = useState<Lists>({ day: "", dated: [], undated: [], templates: [] });
   // The Templates section starts collapsed; the choice sticks per device.
-  const [templatesOpen, setTemplatesOpen] = useState(() => {
-    try {
-      return localStorage.getItem(TEMPLATES_OPEN_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const toggleTemplates = () => {
-    setTemplatesOpen((o) => {
-      try {
-        localStorage.setItem(TEMPLATES_OPEN_KEY, o ? "0" : "1");
-      } catch {}
-      return !o;
-    });
-  };
+  const templatesOpen = useSyncExternalStore(subscribeTemplatesOpen, readTemplatesOpen, () => false);
+  const toggleTemplates = () => writeTemplatesOpen(!templatesOpen);
   const dated = lists.day === day ? lists.dated : [];
   const undated = lists.undated;
   const [open, setOpenState] = useState<OpenPage | null>(null);
@@ -340,7 +353,10 @@ export default function Tasks() {
   }, [pageId]);
 
   // The page shown is whatever we hold, as long as the URL still points at it.
-  const shown = open && (open.page.id === pageId || open.virtual?.key === pageId) ? open : null;
+  const shown =
+    open && (open.page.id === pageId || open.virtual?.key === pageId || open.alias === pageId)
+      ? open
+      : null;
 
   // Poll while visible, and flush unsaved edits when the tab goes away.
   useEffect(() => {
@@ -469,7 +485,7 @@ export default function Tasks() {
     if (!cur?.virtual) return;
     const { templateId, day: occDay } = cur.virtual;
     const { page, blocks } = cur;
-    setOpen({ page, blocks });
+    setOpen({ page, blocks, alias: cur.virtual.key });
     go({ page: page.id });
     enqueue(async () => {
       await store.createPage(stripCreated(page), blocks);
