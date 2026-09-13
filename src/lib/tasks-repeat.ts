@@ -20,7 +20,7 @@ export type RepeatRule = {
   freq: Freq;
   interval: number; // every N days/weeks/months/years, >= 1
   start: string; // anchor day; first possible occurrence
-  /** daily + weekly: which weekdays count. Daily defaults to all seven. */
+  /** weekly: which weekdays. (Daily rules keep all seven; older rules may carry a subset.) */
   weekdays: number[];
   /** monthly: same day of month as `start`, or the same nth weekday. */
   monthly: "day" | "weekday";
@@ -141,7 +141,7 @@ export function presetRule(key: PresetKey, start: string): RepeatRule | null {
     case "daily":
       return { ...base(start), freq: "daily" };
     case "weekday":
-      return { ...base(start), freq: "daily", weekdays: WEEKDAYS };
+      return { ...base(start), freq: "weekly", weekdays: WEEKDAYS };
     case "weekly":
       return { ...base(start), freq: "weekly", weekdays: [d.getDay()] };
     case "monthly":
@@ -176,7 +176,7 @@ export function presetOf(rule: RepeatRule | null): PresetKey {
   if (rule.end.kind !== "never" || rule.interval !== 1) return "custom";
   const days = [...rule.weekdays].sort().join(",");
   if (rule.freq === "daily" && days === ALL_DAYS.join(",")) return "daily";
-  if (rule.freq === "daily" && days === WEEKDAYS.join(",")) return "weekday";
+  if (rule.freq === "weekly" && days === WEEKDAYS.join(",")) return "weekday";
   if (rule.freq === "weekly" && rule.weekdays.length === 1 && rule.weekdays[0] === fromISODate(rule.start).getDay())
     return "weekly";
   if (rule.freq === "monthly" && rule.monthly === "weekday") return "monthly";
@@ -208,7 +208,9 @@ export function summary(rule: RepeatRule | null): string {
       else text = n === 1 ? `Every ${listDays(rule.weekdays)}` : `Every ${n} days, on ${listDays(rule.weekdays)}`;
       break;
     case "weekly":
-      text = (n === 1 ? "Weekly" : `Every ${n} weeks`) + ` on ${listDays(rule.weekdays)}`;
+      if (n === 1 && days === ALL_DAYS.join(",")) text = "Every day";
+      else if (n === 1 && days === WEEKDAYS.join(",")) text = "Every weekday";
+      else text = (n === 1 ? "Weekly" : `Every ${n} weeks`) + ` on ${listDays(rule.weekdays)}`;
       break;
     case "monthly": {
       const when =

@@ -59,7 +59,7 @@ export default function RepeatDialog({ value, defaultStart, onDone, onCancel }: 
     freq,
     interval: Math.max(1, Math.floor(Number(interval) || 1)),
     start,
-    weekdays: freq === "daily" || freq === "weekly" ? (weekdays.length ? weekdays : ALL_DAYS) : ALL_DAYS,
+    weekdays: freq === "weekly" ? (weekdays.length ? weekdays : [s.getDay()]) : ALL_DAYS,
     monthly,
     end:
       endKind === "on"
@@ -126,7 +126,17 @@ export default function RepeatDialog({ value, defaultStart, onDone, onCancel }: 
                   onChange={(e) => setInterval_(e.target.value)}
                   aria-label="Interval"
                 />
-                <select value={freq} onChange={(e) => setFreq(e.target.value as Freq)} aria-label="Unit">
+                <select
+                  value={freq}
+                  onChange={(e) => {
+                    const f = e.target.value as Freq;
+                    setFreq(f);
+                    // Switching to weeks starts from the start date's weekday, like Google.
+                    if (f === "weekly" && (weekdays.length === 0 || weekdays.length === 7))
+                      setWeekdays([s.getDay()]);
+                  }}
+                  aria-label="Unit"
+                >
                   {(["daily", "weekly", "monthly", "yearly"] as Freq[]).map((f) => (
                     <option key={f} value={f}>
                       {unitLabel(f)}
@@ -137,7 +147,7 @@ export default function RepeatDialog({ value, defaultStart, onDone, onCancel }: 
               </span>
             </div>
 
-            {(freq === "daily" || freq === "weekly") && (
+            {freq === "weekly" && (
               <div className={styles.mRow}>
                 <span>Repeat on</span>
                 <span className={styles.dayCircles}>

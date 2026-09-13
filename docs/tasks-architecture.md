@@ -195,8 +195,9 @@ would replace the poll with no schema change.
   `{ freq: "daily"|"weekly"|"monthly"|"yearly", interval: 1,
      start: "2026-09-14", weekdays: [1,2,3,4,5], monthly: "day"|"weekday",
      end: { kind: "never" } | { kind: "on", date } | { kind: "after", count } }`
-  Daily also carries `weekdays`, so "every day except Monday" is Daily with
-  six days ticked. The quick menu offers Does not repeat / Daily / Every
+  The weekday circles appear for weekly rules only (as in Google), so "every
+  day except Monday" is Weekly with six days ticked; "Every weekday" is
+  Weekly on Mon–Fri. The quick menu offers Does not repeat / Daily / Every
   weekday / Weekly on <weekday of start> / Monthly on the nth <weekday> /
   Custom; the rule is shown in plain words ("Every 2 weeks on Tue and Fri,
   until 31 Dec 2026") on the template's chip and in the dialog.
