@@ -145,10 +145,11 @@ would replace the poll with no schema change.
 
 ## Templates (step 4)
 
-- Templates are reached only through the "+" chooser (agreed 2026-09-13):
-  Blank page, or From template, which lists templates (tap to use, pencil
-  to edit) with "New template…" at the bottom. They never appear in the
-  sidebar sections.
+- Templates live in a collapsible "Templates" section at the bottom of the
+  sidebar (collapsed by default, remembered per device), each row showing
+  its repeat rule in words and a Recipe tag; tapping opens it, the section's
+  "+" creates one. The "+" chooser on the day sections also offers Blank
+  page or From template (tap to use, pencil to edit, "New template…").
 - Create template: insert a `task_pages` row with `kind='template'`, plus
   `is_recipe` (and, from step 6, `repeat`) answered in the creation flow.
   Edited in the same editor as a page, marked with a Template tag and a

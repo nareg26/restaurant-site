@@ -8,6 +8,8 @@ import styles from "./tasks.module.css";
 
 type Props = {
   label: string;
+  /** "template": the button opens straight onto the New template form. */
+  mode?: "page" | "template";
   /** Anchor for repeat presets (today). */
   today: string;
   loadTemplates: () => Promise<TemplateSummary[]>;
@@ -22,6 +24,7 @@ type View = "main" | "templates" | "new";
 /** The "+" button: blank page, or from a template (use / edit / create one). */
 export default function NewPageMenu({
   label,
+  mode = "page",
   today,
   loadTemplates,
   onBlank,
@@ -108,7 +111,13 @@ export default function NewPageMenu({
         className={styles.addBtn}
         aria-label={label}
         aria-expanded={open}
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => {
+          if (open) close();
+          else {
+            setOpen(true);
+            if (mode === "template") setView("new");
+          }
+        }}
       >
         +
       </button>
@@ -237,8 +246,12 @@ export default function NewPageMenu({
                 </button>
               )}
               <div className={styles.popActions}>
-                <button type="button" className={styles.popItemSmall} onClick={showTemplates}>
-                  Back
+                <button
+                  type="button"
+                  className={styles.popItemSmall}
+                  onClick={mode === "template" ? close : showTemplates}
+                >
+                  {mode === "template" ? "Cancel" : "Back"}
                 </button>
                 <button type="submit" className={styles.popGo} disabled={!name.trim()}>
                   Create

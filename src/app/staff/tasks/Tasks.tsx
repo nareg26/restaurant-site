@@ -14,9 +14,10 @@ import {
   type Page,
   type PagePatch,
   type PageSummary,
+  type TemplateSummary,
 } from "@/lib/tasks-store";
 import { uploadImage } from "@/lib/tasks-images";
-import { occursOn, parseVirtualId, virtualId, type RepeatRule } from "@/lib/tasks-repeat";
+import { occursOn, parseVirtualId, summary, virtualId, type RepeatRule } from "@/lib/tasks-repeat";
 import { addDays, fmtMin, fromISODate, toISODate } from "@/lib/time";
 import Editor, { type EditorActions, type Focus } from "./Editor";
 import NewPageMenu from "./NewPageMenu";
@@ -33,7 +34,14 @@ type OpenPage = {
   blocks: Block[];
   virtual?: { templateId: string; day: string; key: string };
 };
-type Lists = { day: string; dated: PageSummary[]; undated: PageSummary[] };
+type Lists = {
+  day: string;
+  dated: PageSummary[];
+  undated: PageSummary[];
+  templates: TemplateSummary[];
+};
+
+const TEMPLATES_OPEN_KEY = "tasks-templates-open";
 type Status = { kind: "" | "ok" | "busy" | "err"; msg: string };
 
 const weekdayOf = (iso: string) =>
@@ -91,7 +99,23 @@ export default function Tasks() {
 
   // Sidebar lists, tagged with the day they were loaded for so a day change
   // never shows the previous day's pages while the new ones load.
-  const [lists, setLists] = useState<Lists>({ day: "", dated: [], undated: [] });
+  const [lists, setLists] = useState<Lists>({ day: "", dated: [], undated: [], templates: [] });
+  // The Templates section starts collapsed; the choice sticks per device.
+  const [templatesOpen, setTemplatesOpen] = useState(() => {
+    try {
+      return localStorage.getItem(TEMPLATES_OPEN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleTemplates = () => {
+    setTemplatesOpen((o) => {
+      try {
+        localStorage.setItem(TEMPLATES_OPEN_KEY, o ? "0" : "1");
+      } catch {}
+      return !o;
+    });
+  };
   const dated = lists.day === day ? lists.dated : [];
   const undated = lists.undated;
   const [open, setOpenState] = useState<OpenPage | null>(null);
@@ -194,10 +218,11 @@ export default function Tasks() {
   const refreshLists = useCallback(async (quiet = true) => {
     const d = dayRef.current;
     try {
-      const [a, b, repeating] = await Promise.all([
+      const [a, b, repeating, templates] = await Promise.all([
         store.listDay(d),
         store.listUndated(),
         store.listRepeating(),
+        store.listTemplates(),
       ]);
       if (dayRef.current !== d) return; // day changed while loading
       // Occurrences the rules produce for this day, minus the ones already
@@ -216,7 +241,7 @@ export default function Tasks() {
           todo_done: 0,
           virtual: { templateId: t.id, day: d },
         }));
-      setLists({ day: d, dated: [...a, ...virtual].sort(bySidebarOrder), undated: b });
+      setLists({ day: d, dated: [...a, ...virtual].sort(bySidebarOrder), undated: b, templates });
       setBanner(null);
       // A quiet poll that succeeds also clears an earlier connection error.
       setStatus((s) => (quiet && s.kind !== "err" ? s : { kind: "ok", msg: "Synced" }));
@@ -510,7 +535,7 @@ export default function Tasks() {
         return { ...next, undated: [...next.undated, moved].sort(bySidebarOrder) };
       if (targetDay === l.day)
         return { ...next, dated: [...next.dated, moved].sort(bySidebarOrder) };
-      return { day: targetDay, dated: [moved], undated: next.undated };
+      return { ...next, day: targetDay, dated: [moved] };
     });
     enqueue(async () => {
       await store.updatePage(id, { day: targetDay });
@@ -540,6 +565,7 @@ export default function Tasks() {
       ...l,
       dated: l.dated.filter((p) => p.id !== id),
       undated: l.undated.filter((p) => p.id !== id),
+      templates: l.templates.filter((t) => t.id !== id),
     }));
     enqueue(async () => {
       await store.deletePage(id);
@@ -795,6 +821,71 @@ export default function Tasks() {
           onDelete={deletePageById}
           today={today}
         />
+
+        <section className={styles.section}>
+          <header className={styles.sectionHead}>
+            <h2>
+              <button
+                type="button"
+                className={styles.collapseBtn}
+                onClick={toggleTemplates}
+                aria-expanded={templatesOpen}
+              >
+                <span className={styles.chev}>{templatesOpen ? "▾" : "▸"}</span>
+                Templates
+                {lists.templates.length > 0 && (
+                  <span className={styles.countBadge}>{lists.templates.length}</span>
+                )}
+              </button>
+            </h2>
+            <NewPageMenu
+              mode="template"
+              label="New template"
+              today={today}
+              loadTemplates={loadTemplates}
+              onBlank={() => {}}
+              onFromTemplate={(tid) => createFromTemplate(tid, day)}
+              onEditTemplate={(tid) => go({ page: tid })}
+              onCreateTemplate={createTemplate}
+            />
+          </header>
+          {templatesOpen &&
+            (lists.templates.length === 0 ? (
+              <p className={styles.empty}>No templates yet. Add one with +.</p>
+            ) : (
+              <ul className={styles.list}>
+                {lists.templates.map((t) => {
+                  const label = `${t.emoji} ${t.title}`.trim();
+                  return (
+                    <li key={t.id} className={`${styles.item} ${t.id === pageId ? styles.itemOn : ""}`}>
+                      <button type="button" className={styles.itemMain} onClick={() => go({ page: t.id })}>
+                        <span className={styles.itemEmoji}>{t.emoji || "📄"}</span>
+                        <span className={styles.itemBody}>
+                          <span className={`${styles.itemTitle} ${t.title ? "" : styles.untitled}`}>
+                            {t.title || "Untitled"}
+                          </span>
+                          {(t.repeat || t.is_recipe) && (
+                            <span className={styles.itemMeta}>
+                              {t.repeat && <span>↻ {summary(t.repeat)}</span>}
+                              {t.is_recipe && <span>Recipe</span>}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                      <PageMenu
+                        currentDay={null}
+                        canMove={false}
+                        onMove={() => {}}
+                        onDelete={() => deletePageById(t.id, label, Boolean(t.repeat))}
+                        align="right"
+                        label={`Menu for template ${label || "Untitled"}`}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            ))}
+        </section>
 
         <div className={styles.sideFoot}>
           <span className={styles.status}>
