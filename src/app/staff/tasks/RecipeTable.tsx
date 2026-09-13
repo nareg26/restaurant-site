@@ -77,14 +77,12 @@ function TemplateTable({ rows, onRows }: { rows: RecipeRow[]; onRows: (r: Recipe
           <input
             className={styles.rtUnit}
             value={r.unit}
-            placeholder="g"
             onChange={(e) => update(r.id, { unit: e.target.value })}
             aria-label="Unit"
           />
           <input
             className={styles.rtName}
             value={r.name}
-            placeholder="flour"
             onChange={(e) => update(r.id, { name: e.target.value })}
             aria-label="Ingredient"
           />
