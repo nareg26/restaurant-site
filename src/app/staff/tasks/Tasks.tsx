@@ -735,6 +735,23 @@ export default function Tasks() {
       const cur = openRef.current;
       if (cur?.page.template_id) go({ page: cur.page.template_id });
     },
+    moveBlock(id, dir) {
+      ensureReal();
+      const cur = openRef.current;
+      if (!cur) return false;
+      const bs = cur.blocks;
+      const i = bs.findIndex((b) => b.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= bs.length) return false;
+      // Slot in on the far side of the neighbour we're swapping with.
+      const position =
+        dir < 0
+          ? positionBetween(bs[j - 1]?.position, bs[j].position)
+          : positionBetween(bs[j].position, bs[j + 1]?.position);
+      commitBlocks((all) => all.map((b) => (b.id === id ? { ...b, position } : b)));
+      enqueue(() => store.updateBlock(id, { position }));
+      return true;
+    },
     removeImage(id, imageId) {
       ensureReal();
       const b = openRef.current?.blocks.find((x) => x.id === id);

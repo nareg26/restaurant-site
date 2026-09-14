@@ -62,6 +62,8 @@ export type EditorActions = {
   /** Upload files and attach them to the block. Rejects with a readable message. */
   addImages: (id: string, files: File[]) => Promise<void>;
   removeImage: (id: string, imageId: string) => void;
+  /** Swap the block with its neighbour above (-1) or below (1). Returns false at an edge. */
+  moveBlock: (id: string, dir: -1 | 1) => boolean;
   /** Non-repeating templates: make a page from this template on the sidebar's day. */
   useTemplate: () => void;
   /** Pages made from a template: open that template. */
@@ -395,6 +397,28 @@ function BlockRow({
   const [uploading, setUploading] = useState(0);
   const [imgError, setImgError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [grip, setGrip] = useState(false);
+  const gripRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!grip) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (gripRef.current && !gripRef.current.contains(e.target as Node)) setGrip(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+    };
+  }, [grip]);
+
+  const move = (dir: -1 | 1) => {
+    setGrip(false);
+    const el = ref.current;
+    const off = el && document.activeElement === el ? modelOffset(el) : 0;
+    if (actions.moveBlock(block.id, dir)) requestFocus(block.id, off);
+  };
 
   /** Render `text` into the DOM (pills included) and remember what was painted. */
   const paint = useCallback(
@@ -546,6 +570,13 @@ function BlockRow({
         setIng(null);
         return;
       }
+    }
+
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const off = modelOffset(el);
+      if (actions.moveBlock(block.id, e.key === "ArrowUp" ? -1 : 1)) requestFocus(block.id, off);
+      return;
     }
 
     if (e.key === "Enter" && e.shiftKey) {
@@ -716,6 +747,29 @@ function BlockRow({
           }, 150);
         }}
       />
+      <div className={`${styles.gripWrap} ${grip ? styles.gripOpen : ""}`} ref={gripRef}>
+        <button
+          type="button"
+          className={styles.gripBtn}
+          aria-label="Move this block"
+          title="Move"
+          aria-expanded={grip}
+          onMouseDown={(e) => e.preventDefault()} // keep the text focused
+          onClick={() => setGrip((g) => !g)}
+        >
+          ⋮
+        </button>
+        {grip && (
+          <div className={`${styles.popover} ${styles.popRight}`} onMouseDown={(e) => e.preventDefault()}>
+            <button type="button" className={styles.popItem} disabled={!prev} onClick={() => move(-1)}>
+              ↑ Move up
+            </button>
+            <button type="button" className={styles.popItem} disabled={!next} onClick={() => move(1)}>
+              ↓ Move down
+            </button>
+          </div>
+        )}
+      </div>
       {!hasImages && !uploading && (
         <button
           type="button"

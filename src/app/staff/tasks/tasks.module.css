@@ -955,6 +955,38 @@
 
 /* ---------- images on blocks ---------- */
 
+/* The move handle and its menu: laid out like the camera button. */
+.gripWrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  visibility: hidden;
+}
+.block:focus-within .gripWrap,
+.gripOpen {
+  visibility: visible;
+}
+.gripBtn {
+  width: 28px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  margin-top: 1px;
+}
+.gripBtn:hover,
+.gripBtn[aria-expanded="true"] {
+  background: #f1efeb;
+  color: var(--ink);
+}
+.gripWrap .popItem:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Always laid out, only shown when the block is focused, so focusing a
    block never changes its height or the text's wrapping width. */
 .camBtn {
