@@ -13,6 +13,7 @@ import {
   type Block,
   type Page,
   type PagePatch,
+  type BlockBrief,
   type PageSummary,
   type TemplateSummary,
 } from "@/lib/tasks-store";
@@ -76,7 +77,7 @@ const dateOf = (iso: string) =>
   fromISODate(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 const dayShort = (iso: string) => fromISODate(iso).toLocaleDateString("en-GB", { weekday: "short" });
 
-const emptyBlock = (pageId: string): Block => ({
+const emptyBlock = (pageId: string, lead = 0): Block => ({
   id: newId(),
   page_id: pageId,
   position: 1,
@@ -84,7 +85,21 @@ const emptyBlock = (pageId: string): Block => ({
   text: "",
   done: false,
   images: [],
+  lead_days: lead,
 });
+
+/** How far ahead the sidebar looks for prep steps. */
+const MAX_LEAD_DAYS = 7;
+
+/** A prep entry's name: its first header, else "<title> prep". */
+const prepLabel = (title: string, blocks: BlockBrief[]) => {
+  const header = [...blocks]
+    .sort((a, b) => a.position - b.position)
+    .find((b) => b.kind === "header" && b.text.trim());
+  return header ? header.text.trim() : `${title || "Untitled"} prep`;
+};
+
+const prepId = (open: string, lead: number) => `prep:${open}:${lead}`;
 
 /** A fresh, independent copy of a template: new ids, ticks cleared, scale 1. */
 function buildCopy(t: { page: Page; blocks: Block[] }, targetDay: string | null) {
@@ -122,6 +137,8 @@ export default function Tasks() {
 
   const day = params.get("day") || today;
   const pageId = params.get("page");
+  /** > 0 when a prep entry is open: show the blocks due that many days early. */
+  const lead = Math.max(0, Math.floor(Number(params.get("lead") || 0)) || 0);
 
   // Sidebar lists, tagged with the day they were loaded for so a day change
   // never shows the previous day's pages while the new ones load.
@@ -150,9 +167,13 @@ export default function Tasks() {
   }, [day]);
   // What the URL says (or is about to say): two go() calls in one tick must
   // build on each other, not on a stale searchParams snapshot.
-  const urlRef = useRef({ day: params.get("day"), page: params.get("page") });
+  const urlRef = useRef({
+    day: params.get("day"),
+    page: params.get("page"),
+    lead: params.get("lead"),
+  });
   useEffect(() => {
-    urlRef.current = { day: params.get("day"), page: params.get("page") };
+    urlRef.current = { day: params.get("day"), page: params.get("page"), lead: params.get("lead") };
   }, [params]);
 
   // Writes run one after another, in order, so an insert can never race a
@@ -213,14 +234,16 @@ export default function Tasks() {
 
   /* ----- navigation (URL is the source of truth for day + open page) ----- */
   const go = useCallback(
-    (next: { day?: string | null; page?: string | null }) => {
+    (next: { day?: string | null; page?: string | null; lead?: number }) => {
       flushAll();
       const d = next.day === undefined ? urlRef.current.day || today : next.day;
       const p = next.page === undefined ? urlRef.current.page : next.page;
-      urlRef.current = { day: d, page: p };
+      const l = next.lead === undefined ? urlRef.current.lead : next.lead > 0 ? String(next.lead) : null;
+      urlRef.current = { day: d, page: p, lead: p ? l : null };
       const q = new URLSearchParams();
       if (d) q.set("day", d);
       if (p) q.set("page", p);
+      if (p && l) q.set("lead", l);
       const qs = q.toString();
       router.replace(`/staff/tasks${qs ? "?" + qs : ""}`, { scroll: false });
     },
@@ -231,13 +254,65 @@ export default function Tasks() {
   const refreshLists = useCallback(async (quiet = true) => {
     const d = dayRef.current;
     try {
-      const [a, b, repeating, templates] = await Promise.all([
+      const dd = fromISODate(d);
+      const [a, b, repeating, templates, upcoming] = await Promise.all([
         store.listDay(d),
         store.listUndated(),
         store.listRepeating(),
         store.listTemplates(),
+        store.listUpcoming(toISODate(addDays(dd, 1)), toISODate(addDays(dd, MAX_LEAD_DAYS))),
       ]);
       if (dayRef.current !== d) return; // day changed while loading
+      const daysAhead = (iso: string) =>
+        Math.round((fromISODate(iso).getTime() - dd.getTime()) / 86400000);
+      const prepSummary = (
+        open: string,
+        forDay: string,
+        base: Pick<PageSummary, "title" | "emoji" | "template_id" | "created_at">,
+        blocks: BlockBrief[],
+        virtual?: PageSummary["virtual"]
+      ): PageSummary | null => {
+        const n = daysAhead(forDay);
+        const mine = blocks.filter((x) => x.lead_days === n);
+        if (n < 1 || !mine.length) return null;
+        const todos = mine.filter((x) => x.kind === "todo");
+        return {
+          id: prepId(open, n),
+          day: d,
+          title: base.title,
+          emoji: base.emoji,
+          start_min: null,
+          template_id: base.template_id,
+          created_at: base.created_at,
+          todo_total: todos.length,
+          todo_done: virtual ? 0 : todos.filter((x) => x.done).length,
+          virtual,
+          prep: { forDay, leadDays: n, label: prepLabel(base.title, mine), open },
+        };
+      };
+      // Prep steps of pages in the coming days ("soak beans" the day before).
+      const prep: PageSummary[] = [];
+      for (const u of upcoming) {
+        if (!u.day) continue;
+        const ps = prepSummary(u.id, u.day, u, u.blocks);
+        if (ps) prep.push(ps);
+      }
+      // …and of repeat occurrences that haven't been started yet.
+      for (const t of repeating) {
+        for (let n = 1; n <= MAX_LEAD_DAYS; n++) {
+          const forDay = toISODate(addDays(dd, n));
+          if (!occursOn(t.repeat, forDay)) continue;
+          if (t.exceptions.some((e) => e.occurrence_day === forDay)) continue; // started or skipped
+          const ps = prepSummary(
+            virtualId(t.id, forDay),
+            forDay,
+            { ...t, template_id: t.id },
+            t.blocks,
+            { templateId: t.id, day: forDay }
+          );
+          if (ps) prep.push(ps);
+        }
+      }
       // Occurrences the rules produce for this day, minus the ones already
       // started (they're real pages in `a`) or skipped.
       const virtual: PageSummary[] = repeating
@@ -254,7 +329,12 @@ export default function Tasks() {
           todo_done: 0,
           virtual: { templateId: t.id, day: d },
         }));
-      setLists({ day: d, dated: [...a, ...virtual].sort(bySidebarOrder), undated: b, templates });
+      setLists({
+        day: d,
+        dated: [...a, ...virtual, ...prep].sort(bySidebarOrder),
+        undated: b,
+        templates,
+      });
       setBanner(null);
       // A quiet poll that succeeds also clears an earlier connection error.
       setStatus((s) => (quiet && s.kind !== "err" ? s : { kind: "ok", msg: "Synced" }));
@@ -398,7 +478,7 @@ export default function Tasks() {
   const closeOpen = () => {
     setOpen(null);
     setOpenStateKind("idle");
-    go({ page: null });
+    go({ page: null, lead: 0 });
   };
 
   /** On opening a page: put the caret in a trailing empty block, adding one
@@ -662,7 +742,7 @@ export default function Tasks() {
         await refreshLists();
       });
     },
-    insertAfter(afterId, kind, text) {
+    insertAfter(afterId, kind, text, leadDays) {
       ensureReal();
       const cur = openRef.current;
       if (!cur) return "";
@@ -678,6 +758,7 @@ export default function Tasks() {
         text,
         done: false,
         images: [],
+        lead_days: leadDays ?? (idx >= 0 ? (blocks[idx]?.lead_days ?? 0) : 0),
       };
       if (afterId) flushBlock(afterId); // the split left new text in the block above
       commitBlocks((bs) => [...bs, block]);
@@ -761,7 +842,22 @@ export default function Tasks() {
     },
     editTemplate() {
       const cur = openRef.current;
-      if (cur?.page.template_id) go({ page: cur.page.template_id });
+      if (cur?.page.template_id) go({ page: cur.page.template_id, lead: 0 });
+    },
+    setLead(id, days, wholeSection) {
+      ensureReal();
+      const cur = openRef.current;
+      if (!cur) return;
+      const bs = cur.blocks; // position order
+      const i = bs.findIndex((b) => b.id === id);
+      if (i < 0) return;
+      const ids = [id];
+      if (wholeSection) {
+        // A header carries the blocks under it, up to the next header.
+        for (let k = i + 1; k < bs.length && bs[k].kind !== "header"; k++) ids.push(bs[k].id);
+      }
+      commitBlocks((all) => all.map((b) => (ids.includes(b.id) ? { ...b, lead_days: days } : b)));
+      for (const bid of ids) enqueue(() => store.updateBlock(bid, { lead_days: days }));
     },
     moveBlock(id, dir) {
       ensureReal();
@@ -857,13 +953,13 @@ export default function Tasks() {
         <Section
           title={isToday ? "Today’s pages" : "Pages"}
           items={dated}
-          openId={pageId}
+          openId={lead > 0 && pageId ? prepId(pageId, lead) : pageId}
           empty={lists.day === day ? "Nothing planned for this day." : ""}
           onBlank={() => createBlank(day)}
           onFromTemplate={(tid) => createFromTemplate(tid, day)}
           onEditTemplate={(tid) => go({ page: tid })}
           onCreateTemplate={createTemplate}
-          onOpen={(id) => go({ page: id })}
+          onOpen={(id, l) => go({ page: id, lead: l ?? 0 })}
           onMove={movePageById}
           onDelete={deletePageById}
           today={today}
@@ -877,7 +973,7 @@ export default function Tasks() {
           onFromTemplate={(tid) => createFromTemplate(tid, null)}
           onEditTemplate={(tid) => go({ page: tid })}
           onCreateTemplate={createTemplate}
-          onOpen={(id) => go({ page: id })}
+          onOpen={(id, l) => go({ page: id, lead: l ?? 0 })}
           onMove={movePageById}
           onDelete={deletePageById}
           today={today}
@@ -918,7 +1014,11 @@ export default function Tasks() {
                   const label = `${t.emoji} ${t.title}`.trim();
                   return (
                     <li key={t.id} className={`${styles.item} ${t.id === pageId ? styles.itemOn : ""}`}>
-                      <button type="button" className={styles.itemMain} onClick={() => go({ page: t.id })}>
+                      <button
+                        type="button"
+                        className={styles.itemMain}
+                        onClick={() => go({ page: t.id, lead: 0 })}
+                      >
                         <span className={styles.itemEmoji}>{t.emoji || "📄"}</span>
                         <span className={styles.itemBody}>
                           <span className={`${styles.itemTitle} ${t.title ? "" : styles.untitled}`}>
@@ -969,6 +1069,8 @@ export default function Tasks() {
             dayLabel={isToday ? "today" : `${dayShort(day)} ${dateOf(day)}`}
             today={today}
             virtual={Boolean(shown.virtual)}
+            lead={lead}
+            onOpenMain={() => go({ lead: 0 })}
           />
         ) : pageId && openState !== "missing" ? (
           <div className={styles.placeholder} />
@@ -1000,11 +1102,14 @@ type SectionProps = {
   onFromTemplate: (templateId: string) => void;
   onEditTemplate: (templateId: string) => void;
   onCreateTemplate: (name: string, isRecipe: boolean, repeat: RepeatRule | null) => void;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, lead?: number) => void;
   today: string;
   onMove: (id: string, day: string | null) => void;
   onDelete: (id: string, label: string) => void;
 };
+
+const forDayLabel = (iso: string) =>
+  fromISODate(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 const loadTemplates = () => store.listTemplates();
 
@@ -1043,6 +1148,50 @@ function Section({
           {items.map((p) => {
             const pct = p.todo_total ? Math.round((p.todo_done / p.todo_total) * 100) : 0;
             const label = `${p.emoji} ${p.title}`.trim();
+            if (p.prep) {
+              const { prep } = p;
+              return (
+                <li
+                  key={p.id}
+                  className={`${styles.item} ${styles.itemPrep} ${p.id === openId ? styles.itemOn : ""} ${
+                    p.virtual ? styles.itemVirtual : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className={styles.itemMain}
+                    onClick={() => onOpen(prep.open, prep.leadDays)}
+                    title={`Prep for ${forDayLabel(prep.forDay)}'s ${p.title || "Untitled"}`}
+                  >
+                    <span className={styles.itemEmoji}>{p.emoji || "📄"}</span>
+                    <span className={styles.itemBody}>
+                      <span className={styles.itemTitle}>
+                        {p.virtual && <span className={styles.virtIcon}>↻</span>}
+                        {prep.label}
+                      </span>
+                      <span className={styles.itemMeta}>
+                        <span>
+                          for {forDayLabel(prep.forDay)} · {p.title || "Untitled"}
+                        </span>
+                        {p.todo_total > 0 && (
+                          <span className={p.todo_done === p.todo_total ? styles.metaDone : ""}>
+                            {p.todo_done}/{p.todo_total}
+                          </span>
+                        )}
+                      </span>
+                      {p.todo_total > 0 && (
+                        <span className={styles.bar}>
+                          <span
+                            className={`${styles.barFill} ${pct === 100 ? styles.barDone : ""}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            }
             return (
               <li
                 key={p.id}
@@ -1053,7 +1202,7 @@ function Section({
                 <button
                   type="button"
                   className={styles.itemMain}
-                  onClick={() => onOpen(p.id)}
+                  onClick={() => onOpen(p.id, 0)}
                   title={p.virtual ? "Repeats from a template — not started yet" : undefined}
                 >
                   <span className={styles.itemEmoji}>{p.emoji || "📄"}</span>

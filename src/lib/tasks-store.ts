@@ -46,6 +46,8 @@ export type Block = {
   text: string;
   done: boolean;
   images: ImageRef[];
+  /** 0 = on the page's day; N = N days before (prep such as soaking beans). */
+  lead_days: number;
 };
 
 /** What the sidebar needs for one page: identity plus checklist progress. */
@@ -57,12 +59,24 @@ export type PageSummary = Pick<
   todo_done: number;
   /** Set for an occurrence of a repeating template that nobody has touched yet. */
   virtual?: { templateId: string; day: string };
+  /** Set for a prep entry: this page's blocks with `leadDays` lead, shown `leadDays` before `forDay`. */
+  prep?: { forDay: string; leadDays: number; label: string; open: string };
 };
+
+/** One block's scheduling-relevant fields, as embedded in list queries. */
+export type BlockBrief = Pick<Block, "kind" | "done" | "lead_days" | "text" | "position">;
+
+/** A dated page with its blocks' briefs, for computing prep entries. */
+export type UpcomingPage = Pick<
+  Page,
+  "id" | "day" | "title" | "emoji" | "start_min" | "template_id" | "created_at"
+> & { blocks: BlockBrief[] };
 
 /** A template with a repeat rule, plus the days its rule must skip. */
 export type RepeatingTemplate = TemplateSummary & {
   repeat: RepeatRule;
   todo_total: number;
+  blocks: BlockBrief[];
   exceptions: { occurrence_day: string; page_id: string | null }[];
 };
 
@@ -76,7 +90,9 @@ export type NewPage = Omit<Page, "created_at">;
 export type PagePatch = Partial<
   Pick<Page, "day" | "title" | "emoji" | "start_min" | "recipe" | "recipe_scale" | "repeat">
 >;
-export type BlockPatch = Partial<Pick<Block, "position" | "kind" | "text" | "done" | "images">>;
+export type BlockPatch = Partial<
+  Pick<Block, "position" | "kind" | "text" | "done" | "images" | "lead_days">
+>;
 
 /* ---------- helpers ---------- */
 
@@ -135,6 +151,15 @@ const normalizeBlock = (v: any): Block => ({
   text: (v.text ?? "").toString(),
   done: Boolean(v.done),
   images: Array.isArray(v.images) ? v.images : [],
+  lead_days: Math.max(0, Math.floor(Number(v.lead_days ?? 0) || 0)),
+});
+
+const normalizeBrief = (v: any): BlockBrief => ({
+  kind: v.kind === "header" || v.kind === "todo" ? v.kind : "text",
+  done: Boolean(v.done),
+  lead_days: Math.max(0, Math.floor(Number(v.lead_days ?? 0) || 0)),
+  text: (v.text ?? "").toString(),
+  position: Number(v.position ?? 0),
 });
 
 const normalizeSummary = (v: any): PageSummary => {
@@ -182,6 +207,8 @@ export interface TasksStore {
   listTemplates(): Promise<TemplateSummary[]>;
   /** Templates with a repeat rule, with their skipped/started days. */
   listRepeating(): Promise<RepeatingTemplate[]>;
+  /** Dated pages between two days (inclusive) with their blocks' briefs. */
+  listUpcoming(fromDay: string, toDay: string): Promise<UpcomingPage[]>;
   /** Record that an occurrence became a page (pageId) or was skipped (null). */
   addException(templateId: string, day: string, pageId: string | null): Promise<"ok" | "exists">;
   getException(templateId: string, day: string): Promise<{ page_id: string | null } | null>;
@@ -228,7 +255,7 @@ export const store: TasksStore = {
   async listRepeating() {
     const r = await check(
       await fetch(
-        `${pagesUrl}?select=id,title,emoji,is_recipe,repeat,start_min,created_at,task_blocks(kind),task_repeat_exceptions!template_id(occurrence_day,page_id)&kind=eq.template&repeat=not.is.null`,
+        `${pagesUrl}?select=id,title,emoji,is_recipe,repeat,start_min,created_at,task_blocks(kind,done,lead_days,text,position),task_repeat_exceptions!template_id(occurrence_day,page_id)&kind=eq.template&repeat=not.is.null`,
         { headers }
       )
     );
@@ -237,7 +264,9 @@ export const store: TasksStore = {
     for (const v of (await r.json()) as any[]) {
       const p = normalizePage(v);
       if (!p.repeat) continue;
-      const blocks: unknown[] = Array.isArray(v.task_blocks) ? v.task_blocks : [];
+      const blocks: BlockBrief[] = (Array.isArray(v.task_blocks) ? v.task_blocks : []).map(
+        normalizeBrief
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ex: any[] = Array.isArray(v.task_repeat_exceptions) ? v.task_repeat_exceptions : [];
       out.push({
@@ -248,8 +277,8 @@ export const store: TasksStore = {
         repeat: p.repeat,
         start_min: p.start_min,
         created_at: p.created_at,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        todo_total: blocks.filter((b: any) => b.kind === "todo").length,
+        todo_total: blocks.filter((b) => b.kind === "todo" && b.lead_days === 0).length,
+        blocks,
         exceptions: ex.map((e) => ({
           occurrence_day: String(e.occurrence_day),
           page_id: e.page_id ? String(e.page_id) : null,
@@ -257,6 +286,28 @@ export const store: TasksStore = {
       });
     }
     return out;
+  },
+  async listUpcoming(fromDay, toDay) {
+    const r = await check(
+      await fetch(
+        `${pagesUrl}?select=id,day,title,emoji,start_min,template_id,created_at,task_blocks(kind,done,lead_days,text,position)&kind=eq.page&day=gte.${fromDay}&day=lte.${toDay}`,
+        { headers }
+      )
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ((await r.json()) as any[]).map((v) => {
+      const p = normalizePage(v);
+      return {
+        id: p.id,
+        day: p.day,
+        title: p.title,
+        emoji: p.emoji,
+        start_min: p.start_min,
+        template_id: p.template_id,
+        created_at: p.created_at,
+        blocks: (Array.isArray(v.task_blocks) ? v.task_blocks : []).map(normalizeBrief),
+      };
+    });
   },
   async addException(templateId, day, pageId) {
     const r = await fetch(exceptionsUrl, {

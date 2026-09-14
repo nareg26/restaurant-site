@@ -26,6 +26,7 @@ create table if not exists task_blocks (
   text       text not null default '',
   done       boolean not null default false,
   images     jsonb not null default '[]',
+  lead_days  integer not null default 0,        -- N = do this N days before the page's day
   updated_at timestamptz not null default now()
 );
 create index if not exists task_blocks_page_pos on task_blocks (page_id, position);

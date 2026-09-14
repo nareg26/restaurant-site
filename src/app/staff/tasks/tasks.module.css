@@ -953,6 +953,68 @@
   cursor: text;
 }
 
+/* ---------- prep (lead time) ---------- */
+
+.leadGroup {
+  display: flex;
+  flex-direction: column;
+}
+.leadHead {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 650;
+  margin: 14px 4px 4px;
+}
+.leadHint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 450;
+}
+.leadDim .blockText,
+.leadDim .check {
+  opacity: 0.6;
+}
+.leadDim .blockText:focus,
+.leadDim .block:focus-within .blockText {
+  opacity: 1;
+}
+.prepBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.showRestBtn {
+  align-self: flex-start;
+  margin: 12px 4px 0;
+  border: 1px dashed var(--line);
+  background: none;
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.showRestBtn:hover {
+  color: var(--ink);
+  background: #f1efeb;
+}
+.popItemOn {
+  color: var(--accent);
+  font-weight: 600;
+}
+.itemPrep .itemMeta {
+  flex-wrap: wrap;
+}
+
 /* ---------- images on blocks ---------- */
 
 /* The move handle and its menu: laid out like the camera button. */

@@ -219,6 +219,27 @@ would replace the poll with no schema change.
   warns that future repeats stop; pages already started stay (their
   `template_id` goes null via the FK).
 
+## Prep steps done days ahead (lead time)
+
+- Some recipe steps happen before the day (soak beans the night before).
+  Rather than a second page, a block carries `lead_days` (0 = the page's
+  day, N = N days before). On a template, the grip menu's "When" sets it;
+  applied to a header it covers the header's section up to the next header.
+- **One page, shown on two days** (agreed 2026-09-14). A page on day D with
+  blocks at lead N also appears in the sidebar on D−N as a *prep entry*:
+  named after the section's first header ("Soak beans"), subtitled "for
+  Tue 15 Sept · Hummus", with a done count of just those blocks. Opening it
+  (`?page=…&lead=N`) shows that section active, the rest folded under "On
+  the day". The page's own entry on D shows the prep section dimmed at the
+  top under "Day before". Same blocks, so ticks and amounts are shared and
+  scaling flows through pills.
+- Prep entries derive from pages in the next 7 days (`listUpcoming`) and
+  from untouched repeat occurrences in that window; touching a virtual prep
+  entry materializes the occurrence exactly as touching the page would.
+  Moving or deleting the page moves or removes its prep entries. Undated
+  pages have none.
+- Schema: `task_blocks.lead_days integer not null default 0`.
+
 ## Code layout
 
 | File | Contents |

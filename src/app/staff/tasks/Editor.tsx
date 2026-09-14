@@ -5,7 +5,7 @@ import type { Block, BlockKind, Page, RecipeRow } from "@/lib/tasks-store";
 import { imageUrl } from "@/lib/tasks-images";
 import { fmtAmount, makeToken } from "@/lib/tasks-recipe";
 import { summary, type RepeatRule } from "@/lib/tasks-repeat";
-import { fmtMin, parseTime } from "@/lib/time";
+import { fmtMin, fromISODate, parseTime } from "@/lib/time";
 import {
   hasSelection,
   modelOffset,
@@ -51,8 +51,9 @@ export type EditorActions = {
   setBlockText: (id: string, text: string) => void;
   setBlockKind: (id: string, kind: BlockKind) => void;
   toggleDone: (id: string, done: boolean) => void;
-  /** Insert a new block after `afterId` (or at the end when null). Returns its id. */
-  insertAfter: (afterId: string | null, kind: BlockKind, text: string) => string;
+  /** Insert a new block after `afterId` (or at the end when null). Returns its id.
+   *  `leadDays` defaults to the block it follows. */
+  insertAfter: (afterId: string | null, kind: BlockKind, text: string, leadDays?: number) => string;
   deleteBlock: (id: string) => void;
   /** Merge block `id` into the one before it; returns the previous block's old length, or null. */
   mergeIntoPrevious: (id: string) => { prevId: string; offset: number } | null;
@@ -64,6 +65,8 @@ export type EditorActions = {
   removeImage: (id: string, imageId: string) => void;
   /** Swap the block with its neighbour above (-1) or below (1). Returns false at an edge. */
   moveBlock: (id: string, dir: -1 | 1) => boolean;
+  /** Do this block (and, for a header, its section) `days` before the page's day. */
+  setLead: (id: string, days: number, wholeSection: boolean) => void;
   /** Non-repeating templates: make a page from this template on the sidebar's day. */
   useTemplate: () => void;
   /** Pages made from a template: open that template. */
@@ -91,7 +94,13 @@ type Props = {
   today: string;
   /** An occurrence of a repeating template that nobody has touched yet. */
   virtual: boolean;
+  /** > 0: opened as a prep entry; show the blocks due that many days early. */
+  lead: number;
+  onOpenMain: () => void;
 };
+
+export const leadLabel = (n: number) => (n === 1 ? "Day before" : `${n} days before`);
+const LEAD_CHOICES = [0, 1, 2, 3];
 
 /* ---------- editor ---------- */
 
@@ -105,8 +114,22 @@ export default function Editor({
   dayLabel,
   today,
   virtual,
+  lead,
+  onOpenMain,
 }: Props) {
   const isTemplate = page.kind === "template";
+  const [showRest, setShowRest] = useState(false);
+
+  // Blocks grouped by lead time: prep sections (furthest ahead first), then the day itself.
+  const leads = [...new Set(blocks.map((b) => b.lead_days))].sort((a, b) => b - a);
+  const groups = leads.map((n) => ({ lead: n, blocks: blocks.filter((b) => b.lead_days === n) }));
+  const prepView = lead > 0;
+  const active = prepView ? groups.filter((g) => g.lead === lead) : groups;
+  const rest = prepView ? groups.filter((g) => g.lead !== lead) : [];
+  const ordered = [...active, ...(showRest ? rest : [])].flatMap((g) => g.blocks);
+  const forDay = page.day
+    ? fromISODate(page.day).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })
+    : "";
   const [repeatDialog, setRepeatDialog] = useState(false);
   const [slash, setSlash] = useState<SlashState>(null);
   const [ing, setIng] = useState<IngState>(null);
@@ -115,7 +138,7 @@ export default function Editor({
   const [view, setView] = useState<"table" | "content">("table");
   const titleRef = useRef<HTMLInputElement>(null);
   const viewerBlock = viewer ? blocks.find((b) => b.id === viewer.blockId) ?? null : null;
-  const closeViewer = useCallback(() => setViewer(null), []);
+  const closeViewer = () => setViewer(null);
 
   // Ingredient pills follow the page's own rows and scale (templates: ×1).
   const rows = page.recipe;
@@ -131,8 +154,8 @@ export default function Editor({
   }, [focus, onFocusHandled]);
 
   const focusFirstOrCreate = () => {
-    if (blocks.length) {
-      requestFocus(blocks[0].id, 0);
+    if (ordered.length) {
+      requestFocus(ordered[0].id, 0);
     } else {
       const id = actions.insertAfter(null, "text", "");
       requestFocus(id, 0);
@@ -274,35 +297,73 @@ export default function Editor({
         />
       )}
 
+      {prepView && (
+        <div className={styles.prepBanner}>
+          <span>
+            <b>{leadLabel(lead)}</b>
+            {forDay ? ` · prep for ${forDay}` : ""}
+          </span>
+          <button type="button" className={styles.linkBtn} onClick={onOpenMain}>
+            Open the full page ›
+          </button>
+        </div>
+      )}
+
       {showContent && (
         <div className={styles.blocks}>
-          {blocks.map((b, i) => (
-            <BlockRow
-              key={b.id}
-              block={b}
-              prev={blocks[i - 1] ?? null}
-              next={blocks[i + 1] ?? null}
-              actions={actions}
-              focus={effectiveFocus?.id === b.id ? effectiveFocus : null}
-              onFocusHandled={focusHandled}
-              requestFocus={requestFocus}
-              slash={slash?.id === b.id ? slash : null}
-              setSlash={setSlash}
-              ing={ing?.id === b.id ? ing : null}
-              setIng={setIng}
-              ingredients={page.is_recipe ? rows : null}
-              rows={rows}
-              scale={scale}
-              onUpToTitle={() => titleRef.current?.focus()}
-              onOpenImages={(index) => setViewer({ blockId: b.id, index })}
-            />
+          {[...active, ...(showRest ? rest : [])].map((g) => (
+            <div
+              key={g.lead}
+              className={`${styles.leadGroup} ${
+                prepView ? (g.lead === lead ? "" : styles.leadDim) : g.lead > 0 ? styles.leadDim : ""
+              }`}
+            >
+              {(g.lead > 0 || prepView) && (
+                <div className={styles.leadHead}>
+                  {g.lead > 0 ? leadLabel(g.lead) : "On the day"}
+                  {!prepView && g.lead > 0 && !isTemplate && page.day && (
+                    <span className={styles.leadHint}> · shows up on that day’s list</span>
+                  )}
+                </div>
+              )}
+              {g.blocks.map((b) => {
+                const i = ordered.findIndex((x) => x.id === b.id);
+                return (
+                  <BlockRow
+                    key={b.id}
+                    block={b}
+                    prev={ordered[i - 1] ?? null}
+                    next={ordered[i + 1] ?? null}
+                    actions={actions}
+                    focus={effectiveFocus?.id === b.id ? effectiveFocus : null}
+                    onFocusHandled={focusHandled}
+                    requestFocus={requestFocus}
+                    slash={slash?.id === b.id ? slash : null}
+                    setSlash={setSlash}
+                    ing={ing?.id === b.id ? ing : null}
+                    setIng={setIng}
+                    ingredients={page.is_recipe ? rows : null}
+                    rows={rows}
+                    scale={scale}
+                    onUpToTitle={() => titleRef.current?.focus()}
+                    onOpenImages={(index) => setViewer({ blockId: b.id, index })}
+                  />
+                );
+              })}
+            </div>
           ))}
+          {prepView && rest.length > 0 && (
+            <button type="button" className={styles.showRestBtn} onClick={() => setShowRest((v) => !v)}>
+              {showRest ? "Hide the rest of the page" : "Show the rest of the page"}
+            </button>
+          )}
+          {!prepView && (
           <div
             className={styles.addArea}
             onClick={() => {
               const last = blocks[blocks.length - 1];
-              if (last && last.kind === "text" && !last.text) requestFocus(last.id, 0);
-              else requestFocus(actions.insertAfter(last?.id ?? null, "text", ""), 0);
+              if (last && last.kind === "text" && !last.text && last.lead_days === 0) requestFocus(last.id, 0);
+              else requestFocus(actions.insertAfter(last?.id ?? null, "text", "", 0), 0);
             }}
           >
             {blocks.length === 0
@@ -311,6 +372,7 @@ export default function Editor({
                 : "Tap here to start writing. Type / for a header or checklist."
               : ""}
           </div>
+          )}
         </div>
       )}
 
@@ -767,6 +829,22 @@ function BlockRow({
             <button type="button" className={styles.popItem} disabled={!next} onClick={() => move(1)}>
               ↓ Move down
             </button>
+            <div className={styles.popHead}>
+              When{block.kind === "header" ? " (this section)" : ""}
+            </div>
+            {LEAD_CHOICES.map((n) => (
+              <button
+                type="button"
+                key={n}
+                className={`${styles.popItem} ${block.lead_days === n ? styles.popItemOn : ""}`}
+                onClick={() => {
+                  setGrip(false);
+                  actions.setLead(block.id, n, block.kind === "header");
+                }}
+              >
+                {n === 0 ? "On the day" : leadLabel(n)}
+              </button>
+            ))}
           </div>
         )}
       </div>

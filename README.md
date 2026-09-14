@@ -85,7 +85,9 @@ from `/admin/preferences` each week.
    explained in [`docs/tasks-architecture.md`](docs/tasks-architecture.md).
    Unlike the other tools, Tasks has no browser-only fallback: it needs
    Supabase. (Installs created before recipes existed need one extra column:
-   `alter table task_pages add column recipe_scale double precision not null default 1;`)
+   `alter table task_pages add column recipe_scale double precision not null default 1;`
+   and, for prep steps done days ahead,
+   `alter table task_blocks add column lead_days integer not null default 0;`)
 6. Photos on Tasks blocks live in a Storage bucket. Run
    [`supabase/task-images.sql`](supabase/task-images.sql) to create the
    public `task-images` bucket and its policies. Images are downsized in the

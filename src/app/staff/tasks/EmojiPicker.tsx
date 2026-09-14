@@ -71,7 +71,7 @@ export default function EmojiPicker({ value, onChange }: Props) {
           <div className={styles.emojiFoot}>
             <input
               value={custom}
-              placeholder="Any emoji…"
+              placeholder="Custom emoji…"
               maxLength={4}
               onChange={(e) => setCustom(e.target.value)}
               onKeyDown={(e) => {
