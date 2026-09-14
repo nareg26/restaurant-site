@@ -308,6 +308,10 @@ export default function Tasks() {
     };
   }, [day, refreshLists]);
 
+  // The "where to start" focus helper is declared with the other mutations
+  // below; the load effect reaches it through a ref kept current each render.
+  const focusStartRef = useRef<(o: OpenPage) => void>(() => {});
+
   // Open page follows the URL. A page we already hold (e.g. one just created)
   // isn't refetched; the poll keeps it fresh.
   useEffect(() => {
@@ -325,8 +329,10 @@ export default function Tasks() {
             setOpenStateKind("missing");
             return;
           }
-          setOpen({ ...buildCopy(t, v.day), virtual: { ...v, key: pageId } });
+          const copy = { ...buildCopy(t, v.day), virtual: { ...v, key: pageId } };
+          setOpen(copy);
           setOpenStateKind("idle");
+          focusStartRef.current(copy);
         })
         .catch((e) => {
           console.error(e);
@@ -342,6 +348,7 @@ export default function Tasks() {
         if (cancelled) return;
         setOpen(res);
         setOpenStateKind(res ? "idle" : "missing");
+        if (res) focusStartRef.current(res);
       })
       .catch((e) => {
         console.error(e);
@@ -394,6 +401,25 @@ export default function Tasks() {
     go({ page: null });
   };
 
+  /** On opening a page: put the caret in a trailing empty block, adding one
+   *  if the page has none, so it's obvious where to start. Recipes open on
+   *  the Ingredients table, so they're left alone. */
+  const focusWhereToStart = (o: OpenPage) => {
+    if (o.page.is_recipe) return;
+    const last = o.blocks[o.blocks.length - 1];
+    if (last && last.kind === "text" && !last.text) {
+      setFocus({ id: last.id, offset: 0 });
+    } else if (o.blocks.length === 0) {
+      const block = emptyBlock(o.page.id);
+      setOpen({ ...o, blocks: [block] });
+      if (!o.virtual) enqueue(() => store.insertBlocks([block]));
+      setFocus({ id: block.id, offset: 0 });
+    }
+  };
+  useEffect(() => {
+    focusStartRef.current = focusWhereToStart;
+  });
+
   /** Show a page we just built locally, persist it, and open it. */
   const openNew = (page: Page, blocks: Block[], focusTitle: boolean) => {
     const newPage = stripCreated(page);
@@ -405,6 +431,7 @@ export default function Tasks() {
     });
     go({ page: page.id });
     if (focusTitle) setFocus({ id: "title", offset: 0 });
+    else focusWhereToStart({ page, blocks });
   };
 
   const createBlank = (targetDay: string | null) => {
@@ -473,6 +500,7 @@ export default function Tasks() {
       setOpen({ page, blocks });
       setOpenStateKind("idle");
       go({ page: page.id });
+      focusWhereToStart({ page, blocks });
       await refreshLists();
     });
   };
