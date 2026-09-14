@@ -218,9 +218,11 @@ export interface TasksStore {
   createPage(page: NewPage, blocks: Block[]): Promise<void>;
   updatePage(id: string, patch: PagePatch): Promise<void>;
   deletePage(id: string): Promise<void>;
+  /** Insert, or overwrite whole rows by id (also how blocks move between pages). */
   insertBlocks(blocks: Block[]): Promise<void>;
   updateBlock(id: string, patch: BlockPatch): Promise<void>;
   deleteBlock(id: string): Promise<void>;
+  deleteBlocks(ids: string[]): Promise<void>;
 }
 
 export const store: TasksStore = {
@@ -396,6 +398,15 @@ export const store: TasksStore = {
   async deleteBlock(id) {
     await check(
       await fetch(`${blocksUrl}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers })
+    );
+  },
+  async deleteBlocks(ids) {
+    if (!ids.length) return;
+    await check(
+      await fetch(`${blocksUrl}?id=in.(${ids.map(encodeURIComponent).join(",")})`, {
+        method: "DELETE",
+        headers,
+      })
     );
   },
 };

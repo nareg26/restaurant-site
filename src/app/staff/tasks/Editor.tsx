@@ -18,6 +18,7 @@ import {
 import EmojiPicker from "./EmojiPicker";
 import Lightbox from "./Lightbox";
 import PageMenu from "./PageMenu";
+import PagePicker, { type PickTarget } from "./PagePicker";
 import RecipeTable from "./RecipeTable";
 import RepeatDialog from "./RepeatDialog";
 import styles from "./tasks.module.css";
@@ -67,6 +68,9 @@ export type EditorActions = {
   moveBlock: (id: string, dir: -1 | 1) => boolean;
   /** Do this block (and, for a header, its section) `days` before the page's day. */
   setLead: (id: string, days: number, wholeSection: boolean) => void;
+  deleteBlocks: (ids: string[]) => void;
+  /** Move or copy blocks to another page (or a new one). */
+  transferBlocks: (ids: string[], target: PickTarget, mode: "move" | "copy") => void;
   /** Non-repeating templates: make a page from this template on the sidebar's day. */
   useTemplate: () => void;
   /** Pages made from a template: open that template. */
@@ -97,6 +101,8 @@ type Props = {
   /** > 0: opened as a prep entry; show the blocks due that many days early. */
   lead: number;
   onOpenMain: () => void;
+  /** Pages the picker offers when moving or copying blocks. */
+  loadTargets: () => Promise<PickTarget[]>;
 };
 
 export const leadLabel = (n: number) => (n === 1 ? "Day before" : `${n} days before`);
@@ -116,9 +122,50 @@ export default function Editor({
   virtual,
   lead,
   onOpenMain,
+  loadTargets,
 }: Props) {
   const isTemplate = page.kind === "template";
   const [showRest, setShowRest] = useState(false);
+  /** Select mode: the ids picked so far; null when not selecting. */
+  const [selected, setSelected] = useState<Set<string> | null>(null);
+  const [picker, setPicker] = useState<"move" | "copy" | null>(null);
+  const selecting = selected !== null;
+
+  /** A header stands for its section: itself plus what follows up to the next header. */
+  const sectionOf = (id: string) => {
+    const i = blocks.findIndex((b) => b.id === id);
+    if (i < 0) return [id];
+    const ids = [id];
+    if (blocks[i].kind === "header")
+      for (let k = i + 1; k < blocks.length && blocks[k].kind !== "header"; k++) ids.push(blocks[k].id);
+    return ids;
+  };
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev ?? []);
+      const ids = sectionOf(id);
+      const allOn = ids.every((x) => next.has(x));
+      for (const x of ids) if (allOn) next.delete(x);
+      else next.add(x);
+      return next;
+    });
+  const startSelect = (id?: string) => {
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    setSelected(new Set(id ? sectionOf(id) : []));
+  };
+  const endSelect = () => {
+    setSelected(null);
+    setPicker(null);
+  };
+
+  useEffect(() => {
+    if (!selecting || picker) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") endSelect();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selecting, picker]);
 
   // Blocks grouped by lead time: prep sections (furthest ahead first), then the day itself.
   const leads = [...new Set(blocks.map((b) => b.lead_days))].sort((a, b) => b - a);
@@ -239,6 +286,11 @@ export default function Editor({
             onDelete={actions.deletePage}
             align="right"
             canMove={!isTemplate}
+            extra={
+              showContent && blocks.length > 0 && !selecting
+                ? [{ label: "Select blocks…", onClick: () => startSelect() }]
+                : []
+            }
           />
         </div>
       </div>
@@ -347,6 +399,10 @@ export default function Editor({
                     scale={scale}
                     onUpToTitle={() => titleRef.current?.focus()}
                     onOpenImages={(index) => setViewer({ blockId: b.id, index })}
+                    selecting={selecting}
+                    selected={selected?.has(b.id) ?? false}
+                    onToggleSelect={() => toggleSelect(b.id)}
+                    onStartSelect={() => startSelect(b.id)}
                   />
                 );
               })}
@@ -374,6 +430,47 @@ export default function Editor({
           </div>
           )}
         </div>
+      )}
+
+      {selecting && (
+        <div className={styles.selBar} role="toolbar" aria-label="Selected blocks">
+          <span className={styles.selCount}>
+            {selected.size} block{selected.size === 1 ? "" : "s"}
+          </span>
+          <button type="button" disabled={!selected.size} onClick={() => setPicker("move")}>
+            Move to…
+          </button>
+          <button type="button" disabled={!selected.size} onClick={() => setPicker("copy")}>
+            Copy to…
+          </button>
+          <button
+            type="button"
+            className={styles.selDanger}
+            disabled={!selected.size}
+            onClick={() => {
+              if (!confirm(`Delete ${selected.size} block${selected.size === 1 ? "" : "s"}?`)) return;
+              actions.deleteBlocks([...selected]);
+              endSelect();
+            }}
+          >
+            Delete
+          </button>
+          <button type="button" onClick={endSelect}>
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {picker && selected && (
+        <PagePicker
+          title={picker === "move" ? "Move blocks to" : "Copy blocks to"}
+          load={loadTargets}
+          onCancel={() => setPicker(null)}
+          onPick={(t) => {
+            actions.transferBlocks([...selected], t, picker);
+            endSelect();
+          }}
+        />
       )}
 
       {repeatDialog && (
@@ -433,6 +530,10 @@ type RowProps = {
   scale: number;
   onUpToTitle: () => void;
   onOpenImages: (index: number) => void;
+  selecting: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onStartSelect: () => void;
 };
 
 function BlockRow({
@@ -452,6 +553,10 @@ function BlockRow({
   scale,
   onUpToTitle,
   onOpenImages,
+  selecting,
+  selected,
+  onToggleSelect,
+  onStartSelect,
 }: RowProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -757,7 +862,9 @@ function BlockRow({
     <div
       className={`${styles.block} ${styles["k_" + block.kind]} ${hasImages ? styles.hasImages : ""} ${
         dragOver ? styles.dropOver : ""
-      }`}
+      } ${selecting ? styles.selectable : ""} ${selected ? styles.selOn : ""}`}
+      onClick={selecting ? onToggleSelect : undefined}
+      aria-selected={selecting ? selected : undefined}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
           e.preventDefault();
@@ -772,6 +879,11 @@ function BlockRow({
         handleFiles(e.dataTransfer.files);
       }}
     >
+      {selecting && (
+        <span className={`${styles.selBox} ${selected ? styles.selBoxOn : ""}`} aria-hidden="true">
+          {selected ? "✓" : ""}
+        </span>
+      )}
       {block.kind === "todo" && (
         <input
           type="checkbox"
@@ -784,7 +896,7 @@ function BlockRow({
       <div
         ref={ref}
         className={`${styles.blockText} ${block.done ? styles.doneText : ""}`}
-        contentEditable
+        contentEditable={!selecting}
         suppressContentEditableWarning
         spellCheck={false}
         data-placeholder={
@@ -828,6 +940,16 @@ function BlockRow({
             </button>
             <button type="button" className={styles.popItem} disabled={!next} onClick={() => move(1)}>
               ↓ Move down
+            </button>
+            <button
+              type="button"
+              className={styles.popItem}
+              onClick={() => {
+                setGrip(false);
+                onStartSelect();
+              }}
+            >
+              ☐ Select{block.kind === "header" ? " section" : ""}…
             </button>
             <div className={styles.popHead}>
               When{block.kind === "header" ? " (this section)" : ""}

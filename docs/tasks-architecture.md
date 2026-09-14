@@ -240,6 +240,24 @@ would replace the poll with no schema change.
   pages have none.
 - Schema: `task_blocks.lead_days integer not null default 0`.
 
+## Moving and copying blocks between pages
+
+- **Select mode** (agreed 2026-09-14): from the page menu ("Select blocks…")
+  or a block's grip ("Select…"). Blocks become tappable rows with a check
+  box; tapping a header selects its section (up to the next header). A bar
+  at the bottom offers Move to…, Copy to…, Delete, Cancel.
+- The **page picker** lists a new page (on the sidebar's day), this week's
+  pages grouped by day, untouched repeat occurrences in that window (picking
+  one starts it), Ongoing, and Templates, with a title filter. The current
+  page is excluded.
+- Blocks land at the end of the target in their original order. A move is
+  one upsert of the same block ids under the new `page_id` (no schema
+  change); a copy is one insert with fresh ids. Kind, text, lead time and
+  photo references travel; ticks are kept unless the target is a template.
+  Ingredient pills keep working when the target shares the source's recipe
+  rows (same template); elsewhere they show as a struck-through name.
+- A toast confirms the result with an Open link. No undo beyond moving back.
+
 ## Code layout
 
 | File | Contents |
@@ -256,6 +274,7 @@ would replace the poll with no schema change.
 | `src/lib/tasks-recipe.ts` | Tokens, amount formatting, scaling helpers |
 | `src/lib/tasks-repeat.ts` | Rule type, occurrence maths, presets, plain-words summary |
 | `src/app/staff/tasks/RepeatDialog.tsx` | The recurrence editor |
+| `src/app/staff/tasks/PagePicker.tsx` | Page chooser for moving/copying blocks |
 | `supabase/tasks.sql` | The table SQL above, ready to paste into the SQL editor |
 | `supabase/task-images.sql` | Bucket + storage policies |
 

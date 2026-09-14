@@ -1015,6 +1015,122 @@
   flex-wrap: wrap;
 }
 
+/* ---------- select mode ---------- */
+
+.selectable {
+  cursor: pointer;
+  padding-left: 6px;
+}
+.selectable > *:not(.selBox) {
+  pointer-events: none;
+}
+.selectable:hover {
+  background: #f1efeb;
+}
+.selOn,
+.selOn:hover {
+  background: var(--accent-bg);
+}
+.selBox {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin: 2px 4px 0 0;
+  border: 2px solid #9a9ca3;
+  border-radius: 7px;
+  background: var(--card);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+.selBoxOn {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.selBar {
+  position: fixed;
+  left: calc(var(--side-w) + 16px);
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.selCount {
+  margin-right: auto;
+  font-weight: 600;
+}
+.selBar button {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 14px;
+  min-height: 40px;
+}
+.selBar button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+.selBar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.selBar .selDanger {
+  color: #ffb4b4;
+}
+.toast {
+  position: fixed;
+  left: calc(var(--side-w) + 16px);
+  bottom: 16px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  max-width: calc(100vw - var(--side-w) - 32px);
+}
+.toast button {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.pickerModal {
+  max-width: 460px;
+}
+.pickerList {
+  overflow-y: auto;
+  max-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pickerRow {
+  width: 100%;
+  border-radius: 8px;
+}
+.pickerRow:hover {
+  background: #f1efeb;
+}
+
 /* ---------- images on blocks ---------- */
 
 /* The move handle and its menu: laid out like the camera button. */
@@ -1535,6 +1651,11 @@
   }
   .lbArrow {
     display: none; /* swipe instead */
+  }
+  .selBar,
+  .toast {
+    left: 16px;
+    max-width: calc(100vw - 32px);
   }
   .rtHead,
   .rtRow {

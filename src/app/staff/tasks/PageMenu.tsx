@@ -16,6 +16,8 @@ type Props = {
   canMove?: boolean;
   /** "Delete" normally; "Skip this day" for an untouched repeat occurrence. */
   deleteLabel?: string;
+  /** Extra entries shown above Move to. */
+  extra?: { label: string; onClick: () => void }[];
 };
 
 /** The "⋯" context menu shared by sidebar thumbnails and the open page. */
@@ -27,6 +29,7 @@ export default function PageMenu({
   label,
   canMove = true,
   deleteLabel = "Delete",
+  extra = [],
 }: Props) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"main" | "move">("main");
@@ -87,6 +90,19 @@ export default function PageMenu({
         >
           {view === "main" ? (
             <>
+              {extra.map((x) => (
+                <button
+                  type="button"
+                  key={x.label}
+                  className={styles.popItem}
+                  onClick={() => {
+                    close();
+                    x.onClick();
+                  }}
+                >
+                  {x.label}
+                </button>
+              ))}
               {canMove && (
                 <button type="button" className={styles.popItem} onClick={() => setView("move")}>
                   Move to…

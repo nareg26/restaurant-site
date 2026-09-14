@@ -23,6 +23,7 @@ import { addDays, fmtMin, fromISODate, toISODate } from "@/lib/time";
 import Editor, { type EditorActions, type Focus } from "./Editor";
 import NewPageMenu from "./NewPageMenu";
 import PageMenu from "./PageMenu";
+import type { PickTarget } from "./PagePicker";
 import styles from "./tasks.module.css";
 
 const POLL_MS = 5000;
@@ -153,6 +154,14 @@ export default function Tasks() {
   const [status, setStatus] = useState<Status>({ kind: "", msg: "" });
   const [banner, setBanner] = useState<React.ReactNode>(null);
   const [focus, setFocus] = useState<Focus>(null);
+  /** Short confirmation after moving/copying blocks, with a link to the target. */
+  const [toast, setToast] = useState<{ msg: string; page?: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (msg: string, page?: string) => {
+    setToast({ msg, page });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 7000);
+  };
 
   /* ----- refs so callbacks always see the latest state ----- */
   const openRef = useRef<OpenPage | null>(null);
@@ -698,6 +707,51 @@ export default function Tasks() {
     if (openRef.current?.page.id === id) closeOpen();
   };
 
+  /** Pages blocks can be sent to: this week's pages, untouched occurrences, Ongoing, Templates. */
+  const loadTargets = useCallback(async (): Promise<PickTarget[]> => {
+    const d = dayRef.current;
+    const dd = fromISODate(d);
+    const to = toISODate(addDays(dd, 7));
+    const [pages, undated, templates, repeating] = await Promise.all([
+      store.listUpcoming(d, to),
+      store.listUndated(),
+      store.listTemplates(),
+      store.listRepeating(),
+    ]);
+    const here = openRef.current?.page.id;
+    const groupFor = (iso: string) =>
+      iso === today ? "Today" : iso === toISODate(addDays(fromISODate(today), 1)) ? "Tomorrow" : forDayLabel(iso);
+    const out: PickTarget[] = [
+      { key: "new", title: `New page (${groupFor(d).toLowerCase()})`, emoji: "", group: "New", isNew: true },
+    ];
+    const dated: (PickTarget & { sort: string })[] = [];
+    for (const p of pages)
+      if (p.id !== here && p.day)
+        dated.push({ key: p.id, title: p.title, emoji: p.emoji, group: groupFor(p.day), pageId: p.id, sort: p.day });
+    for (const t of repeating)
+      for (let n = 0; n <= 7; n++) {
+        const day = toISODate(addDays(dd, n));
+        if (!occursOn(t.repeat, day) || t.exceptions.some((e) => e.occurrence_day === day)) continue;
+        if (openRef.current?.virtual?.templateId === t.id && openRef.current.virtual.day === day) continue;
+        dated.push({
+          key: virtualId(t.id, day),
+          title: t.title,
+          emoji: t.emoji,
+          group: groupFor(day),
+          virtual: { templateId: t.id, day },
+          sort: day,
+        });
+      }
+    dated.sort((a, b) => a.sort.localeCompare(b.sort) || a.title.localeCompare(b.title));
+    out.push(...dated);
+    for (const p of undated)
+      if (p.id !== here) out.push({ key: p.id, title: p.title, emoji: p.emoji, group: "Ongoing", pageId: p.id });
+    for (const t of templates)
+      if (t.id !== here)
+        out.push({ key: t.id, title: t.title, emoji: t.emoji, group: "Templates", pageId: t.id, isTemplate: true });
+    return out;
+  }, [today]);
+
   const actions: EditorActions = {
     patchPage(patch) {
       ensureReal();
@@ -858,6 +912,81 @@ export default function Tasks() {
       }
       commitBlocks((all) => all.map((b) => (ids.includes(b.id) ? { ...b, lead_days: days } : b)));
       for (const bid of ids) enqueue(() => store.updateBlock(bid, { lead_days: days }));
+    },
+    deleteBlocks(ids) {
+      ensureReal();
+      for (const id of ids) {
+        const t = textTimers.current.get(id);
+        if (t) clearTimeout(t);
+        textTimers.current.delete(id);
+        pendingText.current.delete(id);
+      }
+      commitBlocks((bs) => bs.filter((b) => !ids.includes(b.id)));
+      enqueue(async () => {
+        await store.deleteBlocks(ids);
+        await refreshLists();
+      });
+    },
+    transferBlocks(ids, target, mode) {
+      const cur = openRef.current;
+      if (!cur) return;
+      if (mode === "move") ensureReal();
+      flushAll();
+      const chosen = cur.blocks.filter((b) => ids.includes(b.id)); // position order
+      if (!chosen.length) return;
+      if (mode === "move") commitBlocks((bs) => bs.filter((b) => !ids.includes(b.id)));
+      const n = chosen.length;
+      const sourceDay = dayRef.current;
+      enqueue(async () => {
+        // Resolve the destination: an existing page, a new one, or an occurrence to start.
+        let pageId: string;
+        let title = target.title;
+        if (target.isNew) {
+          const page: Page = {
+            id: newId(),
+            kind: "page",
+            day: sourceDay,
+            title: "",
+            emoji: "",
+            start_min: null,
+            template_id: null,
+            is_recipe: false,
+            recipe: [],
+            recipe_scale: 1,
+            repeat: null,
+            created_at: new Date().toISOString(),
+          };
+          await store.createPage(stripCreated(page), []);
+          pageId = page.id;
+          title = "a new page";
+        } else if (target.virtual) {
+          const t = await store.getPage(target.virtual.templateId);
+          if (!t) throw new Error("That template no longer exists");
+          const copy = buildCopy(t, target.virtual.day);
+          await store.createPage(stripCreated(copy.page), copy.blocks);
+          const res = await store.addException(target.virtual.templateId, target.virtual.day, copy.page.id);
+          if (res === "exists") {
+            const ex = await store.getException(target.virtual.templateId, target.virtual.day);
+            await store.deletePage(copy.page.id);
+            if (!ex?.page_id) throw new Error("That occurrence was skipped meanwhile");
+            pageId = ex.page_id;
+          } else pageId = copy.page.id;
+        } else {
+          pageId = target.pageId!;
+        }
+        const dest = await store.getPage(pageId);
+        const last = dest?.blocks.length ? dest.blocks[dest.blocks.length - 1].position : 0;
+        const rows: Block[] = chosen.map((b, i) => ({
+          ...b,
+          id: mode === "copy" ? newId() : b.id,
+          page_id: pageId,
+          position: last + i + 1,
+          done: target.isTemplate ? false : b.done, // templates start clean
+        }));
+        await store.insertBlocks(rows); // upsert: a move rewrites the same ids under the new page
+        await refreshLists();
+        showToast(`${mode === "move" ? "Moved" : "Copied"} ${n} block${n === 1 ? "" : "s"} to ${title || "Untitled"}`, pageId);
+      });
     },
     moveBlock(id, dir) {
       ensureReal();
@@ -1057,6 +1186,22 @@ export default function Tasks() {
       </aside>
 
       <main className={styles.main}>
+        {toast && (
+          <div className={styles.toast} role="status">
+            <span>{toast.msg}</span>
+            {toast.page && (
+              <button
+                type="button"
+                onClick={() => {
+                  setToast(null);
+                  go({ page: toast.page, lead: 0 });
+                }}
+              >
+                Open
+              </button>
+            )}
+          </div>
+        )}
         {shown ? (
           <Editor
             key={shown.page.id}
@@ -1071,6 +1216,7 @@ export default function Tasks() {
             virtual={Boolean(shown.virtual)}
             lead={lead}
             onOpenMain={() => go({ lead: 0 })}
+            loadTargets={loadTargets}
           />
         ) : pageId && openState !== "missing" ? (
           <div className={styles.placeholder} />
