@@ -15,7 +15,7 @@
   --mute-bg: #e4e7dd;
 
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
