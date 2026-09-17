@@ -11,7 +11,7 @@ import {
   type PrefSlot,
 } from "@/lib/prefs-slots";
 import { store as prefsStore } from "@/lib/prefs-store";
-import { addDays, mondayOf, parseTime, toISODate } from "@/lib/time";
+import { addDays, fromISODate, mondayOf, parseTime, toISODate } from "@/lib/time";
 import styles from "./admin.module.css";
 
 type Status = { kind: "" | "ok" | "busy" | "err"; msg: string };
@@ -20,6 +20,7 @@ export default function AdminPreferences() {
   const [slots, setSlots] = useState<PrefSlot[] | null>(null);
   const [responseCount, setResponseCount] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "", msg: "" });
+  const [moveStatus, setMoveStatus] = useState<Status>({ kind: "", msg: "" });
 
   /* the week being set up — drives which dates the day picker offers */
   const [weekStart, setWeekStart] = useState<string>("");
@@ -142,6 +143,39 @@ export default function AdminPreferences() {
 
   const list = slots ?? [];
   const days = [...new Set(list.map((s) => s.day))].sort();
+
+  /* Moving the round: whole weeks from the round's first Monday to the
+     "Week starting" week. Round, because a clock change makes a week 167h. */
+  const moveBy =
+    weekStart && days.length
+      ? Math.round(
+          (mondayOf(fromISODate(weekStart)).getTime() - mondayOf(fromISODate(days[0])).getTime()) /
+            86_400_000
+        )
+      : 0;
+  const targetLabel = weekStart
+    ? mondayOf(fromISODate(weekStart)).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      })
+    : "";
+  const hasResponses = (responseCount ?? 1) > 0;
+
+  const moveSlots = async () => {
+    if (!moveBy || hasResponses) return;
+    const n = list.length;
+    if (!confirm(`Move all ${n} shift${n === 1 ? "" : "s"} to the week of ${targetLabel}?`)) return;
+    setMoveStatus({ kind: "busy", msg: "Moving…" });
+    try {
+      await slotsStore.move(list, moveBy);
+      await refresh();
+      setMoveStatus({ kind: "ok", msg: `Moved to the week of ${targetLabel}.` });
+    } catch (err) {
+      console.error(err);
+      await refresh();
+      setMoveStatus({ kind: "err", msg: "Couldn’t move the shifts — check the list above." });
+    }
+  };
   const totalPeopleHours = list.reduce(
     (sum, s) => sum + ((s.end_min - s.start_min) / 60) * s.need,
     0
@@ -297,6 +331,26 @@ export default function AdminPreferences() {
               {list.length} shift{list.length === 1 ? "" : "s"} · {totalPeopleHours}{" "}
               person-hours to cover
             </p>
+          )}
+
+          {list.length > 0 && (
+            <div className={styles.actions}>
+              <button
+                type="button"
+                onClick={moveSlots}
+                disabled={!moveBy || hasResponses}
+              >
+                Move to week of {targetLabel}
+              </button>
+              <span className={styles.status} data-kind={moveStatus.kind}>
+                {moveStatus.msg ||
+                  (hasResponses
+                    ? "Clear responses first — answers would stick to the moved shifts."
+                    : !moveBy
+                      ? "Already in that week. Change “Week starting” above to pick another."
+                      : "")}
+              </span>
+            </div>
           )}
         </section>
 

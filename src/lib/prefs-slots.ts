@@ -6,7 +6,7 @@
  * date, so day headings and the round's date range derive from the data.
  */
 
-import { fromISODate, pad2 } from "./time";
+import { addDays, fromISODate, pad2, toISODate } from "./time";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -29,6 +29,10 @@ export interface SlotsStore {
   create(slot: NewPrefSlot): Promise<PrefSlot>;
   remove(id: string): Promise<void>;
   clear(): Promise<void>;
+  /** Re-dates the given shifts by `days`, keeping times, need and note. The
+      new rows are written before the old ones go, so a failure part-way
+      leaves both weeks rather than losing shifts. */
+  move(slots: PrefSlot[], days: number): Promise<void>;
 }
 
 /* ---------- display helpers ---------- */
@@ -82,6 +86,8 @@ const normalize = (v: any): PrefSlot => ({
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+const shiftDay = (iso: string, days: number) => toISODate(addDays(fromISODate(iso), days));
+
 const bySlot = (a: PrefSlot, b: PrefSlot) =>
   a.day.localeCompare(b.day) || a.start_min - b.start_min || a.end_min - b.end_min;
 
@@ -117,6 +123,14 @@ export const localSlotsStore: SlotsStore = {
   },
   async clear() {
     writeAll([]);
+  },
+  async move(slots, days) {
+    const ids = new Set(slots.map((s) => s.id));
+    writeAll(
+      readAll().map((s) =>
+        ids.has(s.id) ? { ...s, id: crypto.randomUUID(), day: shiftDay(s.day, days) } : s
+      )
+    );
   },
 };
 
@@ -159,6 +173,21 @@ export const remoteSlotsStore: SlotsStore = {
   async clear() {
     // PostgREST needs a filter; this one matches every row.
     await check(await fetch(`${restUrl}?id=not.is.null`, { method: "DELETE", headers }));
+  },
+  async move(slots, days) {
+    if (!slots.length) return;
+    // New ids, so answers stored against the old ones can't follow them.
+    await check(
+      await fetch(restUrl, {
+        method: "POST",
+        headers: { ...headers, Prefer: "return=minimal" },
+        body: JSON.stringify(
+          slots.map(({ id: _id, ...s }) => (void _id, { ...s, day: shiftDay(s.day, days) }))
+        ),
+      })
+    );
+    const ids = slots.map((s) => `"${s.id}"`).join(",");
+    await check(await fetch(`${restUrl}?id=in.(${ids})`, { method: "DELETE", headers }));
   },
 };
 
