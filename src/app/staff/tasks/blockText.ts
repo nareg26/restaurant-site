@@ -39,9 +39,11 @@ export function render(el: HTMLElement, text: string, rows: RecipeRow[], scale: 
       nodes.push(span);
     }
   }
-  // A caret can't sit after a trailing non-editable span in every browser;
-  // a zero-width space gives it somewhere to be. Stripped on serialize.
-  if (segs.length && segs[segs.length - 1].kind === "ing") nodes.push(document.createTextNode(ZWSP));
+  // A caret can't sit after a trailing non-editable span in every browser,
+  // and a trailing newline (Shift+Enter at the end) renders no empty line to
+  // put it on; a zero-width space gives it somewhere to be. Stripped on serialize.
+  if ((segs.length && segs[segs.length - 1].kind === "ing") || text.endsWith("\n"))
+    nodes.push(document.createTextNode(ZWSP));
   el.replaceChildren(...nodes);
 }
 
