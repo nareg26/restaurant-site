@@ -19,7 +19,7 @@ import {
 } from "@/lib/tasks-store";
 import { uploadImage } from "@/lib/tasks-images";
 import { occursOn, parseVirtualId, summary, virtualId, type RepeatRule } from "@/lib/tasks-repeat";
-import { addDays, fmtMin, fromISODate, toISODate } from "@/lib/time";
+import { addDays, fmtMin, fromISODate, toISODate, workDayISO } from "@/lib/time";
 import Editor, { type EditorActions, type Focus } from "./Editor";
 import NewPageMenu from "./NewPageMenu";
 import PageMenu from "./PageMenu";
@@ -133,8 +133,9 @@ export default function Tasks() {
   const router = useRouter();
   const params = useSearchParams();
 
-  // Computed on the client at mount (this subtree is client-rendered under Suspense).
-  const [today] = useState(() => toISODate(new Date()));
+  // Computed on the client at mount (this subtree is client-rendered under Suspense),
+  // then kept current by the rollover check below: the tablet app stays open for days.
+  const [today, setToday] = useState(() => workDayISO());
 
   const day = params.get("day") || today;
   const pageId = params.get("page");
@@ -476,6 +477,37 @@ export default function Tasks() {
       window.removeEventListener("pagehide", flushAll);
     };
   }, [refreshLists, refreshOpen, flushAll]);
+
+  // A new working day (3:00): if they were on the old today, close whatever
+  // was open (usually last night's closing list) and show the new day.
+  // A day picked on purpose stays put. Never while someone is typing.
+  const todayRef = useRef(today);
+  useEffect(() => {
+    const check = () => {
+      const now = workDayISO();
+      const was = todayRef.current;
+      if (now === was) return;
+      const a = document.activeElement as HTMLElement | null;
+      if (a && (a.isContentEditable || a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return;
+      todayRef.current = now;
+      setToday(now);
+      const onOldToday = !urlRef.current.day || urlRef.current.day === was;
+      if (onOldToday) {
+        setOpen(null);
+        setOpenStateKind("idle");
+        go({ day: null, page: null, lead: 0 });
+      }
+    };
+    const interval = setInterval(check, 60_000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [go]);
 
   /* ----- mutations ----- */
 

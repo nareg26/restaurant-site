@@ -14,6 +14,17 @@ export const addDays = (d: Date, n: number) => {
   return c;
 };
 
+/** The kitchen's day runs until 3:00, so a closing shift past midnight still
+ *  belongs to the day it started. */
+export const DAY_START_HOUR = 3;
+
+/** The working day `now` falls in, as an ISO date. */
+export const workDayISO = (now: Date = new Date()) => {
+  const d = new Date(now);
+  d.setHours(d.getHours() - DAY_START_HOUR);
+  return toISODate(d);
+};
+
 /** Monday 00:00 of the week containing d. */
 export const mondayOf = (d: Date) => {
   const c = new Date(d);

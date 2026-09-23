@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { addDays, toISODate } from "@/lib/time";
+import { addDays, fromISODate, toISODate, workDayISO } from "@/lib/time";
 import styles from "./tasks.module.css";
 
 type Props = {
@@ -65,8 +65,8 @@ export default function PageMenu({
     if (day !== currentDay) onMove(day);
   };
 
-  const today = toISODate(new Date());
-  const tomorrow = toISODate(addDays(new Date(), 1));
+  const today = workDayISO();
+  const tomorrow = toISODate(addDays(fromISODate(today), 1));
 
   return (
     <div className={styles.menuRoot} ref={rootRef}>
