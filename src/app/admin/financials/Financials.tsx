@@ -278,7 +278,6 @@ export default function Financials() {
                         Upload PIN
                         <input
                           type="password"
-                          inputMode="numeric"
                           autoComplete="off"
                           value={pin}
                           onChange={(e) => setPin(e.target.value)}
