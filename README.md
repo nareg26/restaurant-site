@@ -12,7 +12,7 @@ Website and staff tools for the restaurant. Built with [Next.js](https://nextjs.
 | `/staff/preferences` | Poll: staff mark which open shifts they want and spend points on favourites |
 | `/admin/preferences` | Set up the shifts being voted on each week |
 | `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists, photos); pages can be dated or undated, blank or made from a template. Recipe templates carry an ingredient table that pages scale from any row, with ingredient pills in the steps. Templates can repeat (daily, weekdays, weekly, monthly, custom) and show up on the right days until someone starts them |
-| `/admin/financials` | Import the till's SAF-T exports (any date range, overlaps fine) and see daily sales totals. Public to read; importing needs a PIN |
+| `/admin/financials` | Sales dashboard from the till's SAF-T exports: headline numbers vs the previous period, daily sales, receipts per hour, lunch/dinner, card/cash, what sold, which days are imported, and a day-by-day table. Import files (any date range, overlaps fine) at the bottom. Public to read; importing needs a PIN |
 
 ## Local development
 
@@ -102,6 +102,10 @@ from `/admin/preferences` each week.
    them; a receipt already stored from a newer export (by the file's
    creation date) is never overwritten by an older one. Customer tax numbers
    are dropped in the browser before anything is sent.
+   Then run [`supabase/financials-dashboard.sql`](supabase/financials-dashboard.sql)
+   for the dashboard's views. It also sets the working-day rule (receipts
+   logged before 11:00 count for the day before, shown at 21h) and holds
+   `fin_product_names`, which merges product names that are the same item.
 
 > **On IDs:** there is no authentication. Anyone who knows a number can view
 > and overwrite that person's answers, so hand out numbers that aren't trivially

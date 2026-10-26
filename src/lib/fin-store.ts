@@ -139,6 +139,40 @@ export async function dailyTotals(fromDay: string, toDay: string): Promise<Daily
   }
   return [...byDay.values()];
 }
+
+export type HourTotal = { day: string; hour: number; receipts: number; gross: number; net: number };
+
+/** Receipts and sales per working day and hour (late receipts shown at 21h). */
+export async function hourlyTotals(fromDay: string, toDay: string): Promise<HourTotal[]> {
+  const rows = await getAll<any>(
+    `fin_hourly?select=day,hour,receipts,gross,net&${company}&day=gte.${fromDay}&day=lte.${toDay}&order=day,hour`
+  );
+  return rows.map((r) => ({
+    day: r.day,
+    hour: Number(r.hour),
+    receipts: Number(r.receipts),
+    gross: Number(r.gross),
+    net: Number(r.net),
+  }));
+}
+
+export type ProductTotal = { product: string; quantity: number; gross: number; net: number };
+
+/** What sold in the range, duplicate names merged, best sellers first. */
+export async function productTotals(fromDay: string, toDay: string): Promise<ProductTotal[]> {
+  const rows = await getAll<any>(
+    `fin_product_daily?select=product,quantity,gross,net&${company}&day=gte.${fromDay}&day=lte.${toDay}`
+  );
+  const byName = new Map<string, ProductTotal>();
+  for (const r of rows) {
+    const p = byName.get(r.product) ?? { product: r.product, quantity: 0, gross: 0, net: 0 };
+    p.quantity += Number(r.quantity);
+    p.gross += Number(r.gross);
+    p.net += Number(r.net);
+    byName.set(r.product, p);
+  }
+  return [...byName.values()].sort((a, b) => b.gross - a.gross);
+}
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* ---------- import (via the server route) ---------- */

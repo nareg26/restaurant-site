@@ -11,6 +11,15 @@
   --sumac-bg: #f3ded8;
   --amber: #8a5a00;
   --amber-bg: #f6e8c8;
+  /* Chart marks and the heatmap scale (checked with the dataviz validator:
+     bar contrast >= 3:1, ramp monotone with the light end >= 2:1). */
+  --bar: #4c7a1e;
+  --heat-1: #a4bb8b;
+  --heat-2: #81a15f;
+  --heat-3: #618a38;
+  --heat-4: #42681c;
+  --heat-ink-1: #1b2116;
+  --heat-ink-3: #ffffff;
 
   margin: 0;
   min-height: 100dvh;
@@ -34,6 +43,13 @@
     --sumac-bg: #3d1f16;
     --amber: #e3b45c;
     --amber-bg: #3a2c10;
+    --bar: #779648;
+    --heat-1: #516434;
+    --heat-2: #6a8441;
+    --heat-3: #84a750;
+    --heat-4: #9dc85d;
+    --heat-ink-1: #e9ede0;
+    --heat-ink-3: #16190f;
   }
 }
 .page * {
@@ -311,4 +327,17 @@
   color: var(--soft);
   font-size: 0.86rem;
   margin: 0.5rem 0 0;
+}
+
+.data {
+  margin-top: 2rem;
+}
+.data > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--soft);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.8rem;
 }

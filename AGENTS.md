@@ -19,7 +19,10 @@ dev and production.
   touching anything under `src/app/staff/tasks/` or `src/lib/tasks-*.ts`.
 - `supabase/*.sql` — schema; `tasks.sql` is the current full shape.
 - Financials (`/admin/financials`): `supabase/financials.sql` explains the
-  write path (PIN-checked server route, no anon writes) and which file wins.
+  write path (PIN-checked server route, no anon writes) and which file wins;
+  `supabase/financials-dashboard.sql` holds the views the dashboard reads.
+  Chart colours were checked with the dataviz validator; keep new marks on
+  the `--bar` / `--heat-*` tokens in `financials.module.css`.
 
 ## How we work here
 
