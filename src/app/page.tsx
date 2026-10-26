@@ -17,6 +17,9 @@ export default function Home() {
           <li>
             <Link href="/staff/tasks">📋 Tasks</Link>
           </li>
+          <li>
+            <Link href="/admin/financials">📊 Financials</Link>
+          </li>
         </ul>
       </main>
     </div>

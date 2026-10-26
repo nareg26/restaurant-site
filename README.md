@@ -12,6 +12,7 @@ Website and staff tools for the restaurant. Built with [Next.js](https://nextjs.
 | `/staff/preferences` | Poll: staff mark which open shifts they want and spend points on favourites |
 | `/admin/preferences` | Set up the shifts being voted on each week |
 | `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists, photos); pages can be dated or undated, blank or made from a template. Recipe templates carry an ingredient table that pages scale from any row, with ingredient pills in the steps. Templates can repeat (daily, weekdays, weekly, monthly, custom) and show up on the right days until someone starts them |
+| `/admin/financials` | Import the till's SAF-T exports (any date range, overlaps fine) and see daily sales totals. Public to read; importing needs a PIN |
 
 ## Local development
 
@@ -93,6 +94,14 @@ from `/admin/preferences` each week.
    public `task-images` bucket and its policies. Images are downsized in the
    browser (max 1600 px) before upload and are never copied: pages made from
    a template share the same objects.
+7. For `/admin/financials`, run [`supabase/financials.sql`](supabase/financials.sql).
+   These tables are public to read but have no write policies: imports go
+   through `/api/financials/import`, which checks `FINANCIALS_PIN` and writes
+   with `SUPABASE_SECRET_KEY` (both server-only, in `.env.local` and Netlify).
+   Receipts are keyed by their number, so overlapping files never duplicate
+   them; a receipt already stored from a newer export (by the file's
+   creation date) is never overwritten by an older one. Customer tax numbers
+   are dropped in the browser before anything is sent.
 
 > **On IDs:** there is no authentication. Anyone who knows a number can view
 > and overwrite that person's answers, so hand out numbers that aren't trivially
@@ -115,6 +124,8 @@ variables), otherwise the deployed site falls back to browser-only storage:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SECRET_KEY` and `FINANCIALS_PIN` (Financials imports; keep these
+  server-only, never with a `NEXT_PUBLIC_` prefix)
 
 `.env.local` is gitignored and never reaches the build, which is why these have
 to be set in the dashboard.

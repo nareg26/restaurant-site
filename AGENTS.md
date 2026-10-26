@@ -18,6 +18,8 @@ dev and production.
   templates, recipes, repeats, prep steps, block moving. Read it before
   touching anything under `src/app/staff/tasks/` or `src/lib/tasks-*.ts`.
 - `supabase/*.sql` — schema; `tasks.sql` is the current full shape.
+- Financials (`/admin/financials`): `supabase/financials.sql` explains the
+  write path (PIN-checked server route, no anon writes) and which file wins.
 
 ## How we work here
 
