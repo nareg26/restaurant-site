@@ -276,6 +276,12 @@
   color: var(--soft);
   padding-bottom: 0.15rem;
 }
+@media (max-width: 760px) {
+  /* three-digit euro amounts still fit a phone-width cell */
+  .heat {
+    font-size: 0.66rem;
+  }
+}
 .heatDay {
   color: var(--soft);
   font-weight: 600;

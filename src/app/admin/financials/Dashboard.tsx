@@ -301,7 +301,7 @@ export default function Dashboard({
             <DailyBars period={period} days={days} amount={amount} tp={tp} />
 
             <div className={styles.twoCol}>
-              <Heatmap hours={hours} days={days} tp={tp} />
+              <Heatmap hours={hours} days={days} amount={amount} vat={vat} tp={tp} />
               <div className={styles.stack}>
                 <Split
                   title="Lunch and dinner"
@@ -516,10 +516,14 @@ function DailyBars({
 function Heatmap({
   hours,
   days,
+  amount,
+  vat,
   tp,
 }: {
   hours: HourTotal[];
   days: DailyTotal[];
+  amount: (d: { gross: number; net: number }) => number;
+  vat: boolean;
   tp: (lines: string[]) => object;
 }) {
   // Open days per weekday, so each cell is an average, not a total that
@@ -532,25 +536,31 @@ function Heatmap({
   const last = Math.max(...hourList);
   const cols = Array.from({ length: last - first + 1 }, (_, i) => first + i);
 
-  const sums = Array.from({ length: 7 }, () => new Map<number, number>());
+  // Sales and receipts per weekday and hour, summed over the period.
+  const sales = Array.from({ length: 7 }, () => new Map<number, number>());
+  const receipts = Array.from({ length: 7 }, () => new Map<number, number>());
   for (const h of hours) {
-    const m = sums[weekdayIdx(h.day)];
-    m.set(h.hour, (m.get(h.hour) ?? 0) + h.receipts);
+    const w = weekdayIdx(h.day);
+    sales[w].set(h.hour, (sales[w].get(h.hour) ?? 0) + amount(h));
+    receipts[w].set(h.hour, (receipts[w].get(h.hour) ?? 0) + h.receipts);
   }
-  const avg = (w: number, hour: number) =>
+  const avg = (sums: Map<number, number>[], w: number, hour: number) =>
     openDays[w] ? (sums[w].get(hour) ?? 0) / openDays[w] : 0;
-  const max = Math.max(...WEEKDAYS.flatMap((_, w) => cols.map((c) => avg(w, c))));
+  const max = Math.max(...WEEKDAYS.flatMap((_, w) => cols.map((c) => avg(sales, w, c))));
   const step = (v: number) => (v <= 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)));
-  const fmtAvg = (v: number) => (v === 0 ? "" : v < 10 ? v.toFixed(1) : String(Math.round(v)));
+  // Whole euros in the cells (they're narrow on phones); cents in the tooltip.
+  const fmtCell = (v: number) => (v <= 0 ? "" : String(Math.round(v)));
 
   return (
     <section className={styles.card}>
-      <h2>Receipts per hour</h2>
-      <p className={styles.sub}>Average on an open day of that weekday.</p>
+      <h2>Sales per hour</h2>
+      <p className={styles.sub}>
+        Average € {vat ? "with" : "without"} VAT on an open day of that weekday.
+      </p>
       <div className={styles.heatWrap}>
         <div
           className={styles.heat}
-          style={{ gridTemplateColumns: `2.3rem repeat(${cols.length}, minmax(1.3rem, 1fr))` }}
+          style={{ gridTemplateColumns: `2.1rem repeat(${cols.length}, minmax(1.2rem, 1fr))` }}
         >
           <span />
           {cols.map((c) => (
@@ -562,7 +572,7 @@ function Heatmap({
             <React.Fragment key={name}>
               <span className={styles.heatDay}>{name}</span>
               {cols.map((c) => {
-                const v = avg(w, c);
+                const v = avg(sales, w, c);
                 return (
                   <span
                     key={c}
@@ -571,8 +581,9 @@ function Heatmap({
                     {...tp(
                       openDays[w]
                         ? [
-                            `${v.toFixed(1)} receipts`,
+                            money(v),
                             `${name} ${c}:00–${c + 1}:00`,
+                            `${avg(receipts, w, c).toFixed(1)} receipts`,
                             openDays[w] === 1
                               ? `on 1 ${WEEKDAYS_LONG[w]}`
                               : `over ${openDays[w]} ${WEEKDAYS_LONG[w]}s`,
@@ -580,7 +591,7 @@ function Heatmap({
                         : ["Closed", `No ${WEEKDAYS_LONG[w]}s with sales`],
                     )}
                   >
-                    {fmtAvg(v)}
+                    {fmtCell(v)}
                   </span>
                 );
               })}
@@ -589,7 +600,7 @@ function Heatmap({
         </div>
       </div>
       <div className={styles.scale} aria-hidden>
-        <span>Fewer</span>
+        <span>Less</span>
         {[1, 2, 3, 4].map((s) => (
           <span key={s} className={styles.cell} data-step={s} />
         ))}

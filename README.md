@@ -12,7 +12,7 @@ Website and staff tools for the restaurant. Built with [Next.js](https://nextjs.
 | `/staff/preferences` | Poll: staff mark which open shifts they want and spend points on favourites |
 | `/admin/preferences` | Set up the shifts being voted on each week |
 | `/staff/tasks` | Daily pages with Notion-style blocks (text, headers, checklists, photos); pages can be dated or undated, blank or made from a template. Recipe templates carry an ingredient table that pages scale from any row, with ingredient pills in the steps. Templates can repeat (daily, weekdays, weekly, monthly, custom) and show up on the right days until someone starts them |
-| `/admin/financials` | Sales dashboard from the till's SAF-T exports: headline numbers vs the previous period, daily sales, receipts per hour, lunch/dinner, card/cash, what sold, which days are imported, and a day-by-day table. Import files (any date range, overlaps fine) at the bottom. Public to read; importing needs a PIN |
+| `/admin/financials` | Sales dashboard from the till's SAF-T exports: headline numbers vs the previous period, daily sales, sales per hour, lunch/dinner, card/cash, what sold, which days are imported, and a day-by-day table. Import files (any date range, overlaps fine) at the bottom. Public to read; importing needs a PIN |
 
 ## Local development
 
