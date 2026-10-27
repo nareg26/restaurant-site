@@ -20,7 +20,9 @@ dev and production.
 - `supabase/*.sql` — schema; `tasks.sql` is the current full shape.
 - Financials (`/admin/financials`): `supabase/financials.sql` explains the
   write path (PIN-checked server route, no anon writes) and which file wins;
-  `supabase/financials-dashboard.sql` holds the views the dashboard reads.
+  `supabase/financials-dashboard.sql` holds the views the dashboard reads;
+  `supabase/financials-product-rules.sql` the "What sold" display rules
+  (applied in the browser by `src/lib/fin-rules.ts`, never to the data).
   Chart colours were checked with the dataviz validator; keep new marks on
   the `--bar` / `--heat-*` tokens in `financials.module.css`.
 

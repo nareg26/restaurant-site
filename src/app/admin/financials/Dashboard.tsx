@@ -21,6 +21,7 @@ import {
   type PeriodMode,
 } from "@/lib/fin-period";
 import { fromISODate, mondayOf, toISODate } from "@/lib/time";
+import WhatSold from "./WhatSold";
 import styles from "./dashboard.module.css";
 
 /* ---------- formatting ---------- */
@@ -126,7 +127,6 @@ export default function Dashboard({
   const [vat, setVat] = useState(true);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
-  const [allProducts, setAllProducts] = useState(false);
   const [tip, setTip] = useState<Tip>(null);
 
   const key = `${period.from}|${period.to}|${refreshKey}`;
@@ -316,11 +316,13 @@ export default function Dashboard({
               </div>
             </div>
 
-            <Products
+            <WhatSold
               products={products}
+
               amount={amount}
-              all={allProducts}
-              setAll={setAllProducts}
+
+              periodName={periodLabel(period)}
+
               tp={tp}
             />
           </>
@@ -652,66 +654,6 @@ function Split({ title, parts, note }: { title: string; parts: Part[]; note: str
         ))}
       </div>
       <p className={styles.muted}>{note}</p>
-    </section>
-  );
-}
-
-/* ---------- products ---------- */
-
-const TOP_PRODUCTS = 10;
-
-function Products({
-  products,
-  amount,
-  all,
-  setAll,
-  tp,
-}: {
-  products: ProductTotal[];
-  amount: (p: ProductTotal) => number;
-  all: boolean;
-  setAll: (v: boolean) => void;
-  tp: (lines: string[]) => object;
-}) {
-  const sorted = [...products].sort((a, b) => amount(b) - amount(a));
-  const total = sorted.reduce((s, p) => s + amount(p), 0);
-  const max = sorted.length ? amount(sorted[0]) : 1;
-  const shown = all ? sorted : sorted.slice(0, TOP_PRODUCTS);
-
-  return (
-    <section className={styles.card}>
-      <h2>What sold</h2>
-      <div className={styles.products}>
-        <div className={`${styles.prodRow} ${styles.prodHeadRow}`}>
-          <span className={styles.prodName}>Item</span>
-          <span className={styles.prodBarCell}>Sales</span>
-          <span className={styles.prodQty}>Qty</span>
-          <span className={styles.prodShare}>Share</span>
-        </div>
-        {shown.map((p) => (
-          <div key={p.product} className={styles.prodRow}>
-            <span className={styles.prodName}>{p.product}</span>
-            <span
-              className={styles.prodBarCell}
-              {...tp([money(amount(p)), p.product, `${p.quantity} sold`])}
-            >
-              <span className={styles.prodBar} style={{ width: `${(amount(p) / max) * 100}%` }} />
-              <span className={styles.prodValue}>{money(amount(p))}</span>
-            </span>
-            <span className={styles.prodQty}>{p.quantity}</span>
-            <span className={styles.prodShare}>{total ? pct(amount(p) / total) : "—"}</span>
-          </div>
-        ))}
-      </div>
-      {sorted.length > TOP_PRODUCTS && (
-        <button type="button" className={styles.more} onClick={() => setAll(!all)}>
-          {all ? "Show top 10" : `Show all ${sorted.length}`}
-        </button>
-      )}
-      <p className={styles.muted}>
-        Item sales add VAT line by line, so together they can be slightly off the sales total (about
-        €1 a month).
-      </p>
     </section>
   );
 }

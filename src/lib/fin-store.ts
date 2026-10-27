@@ -131,7 +131,7 @@ export async function dailyTotals(fromDay: string, toDay: string): Promise<Daily
         cancelled: Number(d.cancelled),
         payments: {},
       },
-    ])
+    ]),
   );
   for (const p of pays) {
     const d = byDay.get(p.day);
@@ -145,7 +145,7 @@ export type HourTotal = { day: string; hour: number; receipts: number; gross: nu
 /** Receipts and sales per working day and hour (late receipts shown at 21h). */
 export async function hourlyTotals(fromDay: string, toDay: string): Promise<HourTotal[]> {
   const rows = await getAll<any>(
-    `fin_hourly?select=day,hour,receipts,gross,net&${company}&day=gte.${fromDay}&day=lte.${toDay}&order=day,hour`
+    `fin_hourly?select=day,hour,receipts,gross,net&${company}&day=gte.${fromDay}&day=lte.${toDay}&order=day,hour`,
   );
   return rows.map((r) => ({
     day: r.day,
@@ -161,7 +161,7 @@ export type ProductTotal = { product: string; quantity: number; gross: number; n
 /** What sold in the range, duplicate names merged, best sellers first. */
 export async function productTotals(fromDay: string, toDay: string): Promise<ProductTotal[]> {
   const rows = await getAll<any>(
-    `fin_product_daily?select=product,quantity,gross,net&${company}&day=gte.${fromDay}&day=lte.${toDay}`
+    `fin_product_daily?select=product,quantity,gross,net&${company}&day=gte.${fromDay}&day=lte.${toDay}`,
   );
   const byName = new Map<string, ProductTotal>();
   for (const r of rows) {
@@ -173,7 +173,37 @@ export async function productTotals(fromDay: string, toDay: string): Promise<Pro
   }
   return [...byName.values()].sort((a, b) => b.gross - a.gross);
 }
+
+/* ---------- "What sold" display rules ---------- */
+
+/** How one till item shows: under `show_as` ("" = its own name), each
+    counting as `multiplier`. Keyed by the till name, lower-case. */
+export type ProductRule = { product: string; show_as: string; multiplier: number };
+
+export const ruleKey = (product: string) => product.trim().toLowerCase();
+
+export async function listRules(): Promise<ProductRule[]> {
+  const rows = await getAll<any>(
+    `fin_product_rules?select=product,show_as,multiplier&order=product`,
+  );
+  return rows.map((r) => ({
+    product: r.product,
+    show_as: r.show_as ?? "",
+    multiplier: Number(r.multiplier),
+  }));
+}
+
+/** Every item ever sold, with its all-time quantity. */
+export async function listAllProducts(): Promise<{ product: string; quantity: number }[]> {
+  const rows = await getAll<any>(`fin_products?select=product,quantity&${company}&order=product`);
+  return rows.map((r) => ({ product: r.product, quantity: Number(r.quantity) }));
+}
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** Replaces all display rules (needs the upload PIN). */
+export async function saveRules(pin: string, rules: ProductRule[]): Promise<void> {
+  await call({ action: "rules", pin, rules });
+}
 
 /* ---------- import (via the server route) ---------- */
 
@@ -201,7 +231,7 @@ const fileMeta = (f: SaftFile) => ({
 
 const batches = (receipts: SaftReceipt[]) =>
   Array.from({ length: Math.ceil(receipts.length / BATCH) }, (_, i) =>
-    receipts.slice(i * BATCH, (i + 1) * BATCH)
+    receipts.slice(i * BATCH, (i + 1) * BATCH),
   );
 
 /** What importing would do, without writing anything. */
@@ -221,7 +251,7 @@ export async function checkPin(pin: string): Promise<void> {
 export async function runImport(
   f: SaftFile,
   pin: string,
-  onProgress: (done: number, total: number) => void
+  onProgress: (done: number, total: number) => void,
 ): Promise<BatchResult> {
   const { id } = await call<{ id: string }>({ action: "start", pin, file: fileMeta(f) });
   let total = emptyResult();

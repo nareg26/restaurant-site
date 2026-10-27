@@ -104,8 +104,12 @@ from `/admin/preferences` each week.
    are dropped in the browser before anything is sent.
    Then run [`supabase/financials-dashboard.sql`](supabase/financials-dashboard.sql)
    for the dashboard's views. It also sets the working-day rule (receipts
-   logged before 11:00 count for the day before, shown at 21h) and holds
-   `fin_product_names`, which merges product names that are the same item.
+   logged before 11:00 count for the day before, shown at 21h).
+   Finally run [`supabase/financials-product-rules.sql`](supabase/financials-product-rules.sql)
+   for the "What sold" display rules: rename till items or combine them
+   (with a count multiplier, e.g. "sandes x2" counts 2 Falafel sandwiches).
+   Edited from the card's "Edit" button with the upload PIN; viewers can
+   switch them off with "Show cleaned list".
 
 > **On IDs:** there is no authentication. Anyone who knows a number can view
 > and overwrite that person's answers, so hand out numbers that aren't trivially

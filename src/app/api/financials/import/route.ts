@@ -8,7 +8,8 @@
  *   FINANCIALS_PIN       the upload PIN
  *
  * Actions: "check" (PIN only), "preview" (no PIN, writes nothing),
- * "start" → { id }, "batch", "finish".
+ * "start" → { id }, "batch", "finish", and "rules" (the "What sold"
+ * display rules, see supabase/financials-product-rules.sql).
  */
 
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -86,7 +87,8 @@ export async function POST(request: Request) {
         return Response.json({ ok: true });
 
       case "preview": {
-        if (!validMeta(body.file) || !validReceipts(body.receipts)) return fail(400, "Bad file data.");
+        if (!validMeta(body.file) || !validReceipts(body.receipts))
+          return fail(400, "Bad file data.");
         const result = await sb("rpc/fin_import_batch", {
           method: "POST",
           body: JSON.stringify({
@@ -142,6 +144,32 @@ export async function POST(request: Request) {
           body: JSON.stringify({ status: body.ok ? "done" : "failed" }),
         });
         return Response.json({ ok: true });
+      }
+
+      case "rules": {
+        // "What sold" display rules: the whole set, replaced at once.
+        const rules = body.rules;
+        const ok =
+          Array.isArray(rules) &&
+          rules.length <= MAX_BATCH &&
+          rules.every(
+            (r: any) =>
+              r &&
+              typeof r.product === "string" &&
+              r.product.trim() &&
+              r.product.length <= 200 &&
+              typeof r.show_as === "string" &&
+              r.show_as.length <= 200 &&
+              Number.isFinite(r.multiplier) &&
+              r.multiplier > 0 &&
+              r.multiplier <= 1000,
+          );
+        if (!ok) return fail(400, "Bad rules.");
+        const count = await sb("rpc/fin_set_product_rules", {
+          method: "POST",
+          body: JSON.stringify({ p_rules: rules }),
+        });
+        return Response.json({ count });
       }
 
       default:
