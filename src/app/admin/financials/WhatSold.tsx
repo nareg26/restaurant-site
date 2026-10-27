@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { listRules, type ProductRule, type ProductTotal } from "@/lib/fin-store";
-import { applyRules, asSold, fmtQty, isAdjusted, partsLabel } from "@/lib/fin-rules";
+import { applyRules, asSold, fmtQty, isAdjusted, partsLabel, tidyNames } from "@/lib/fin-rules";
 import ProductRulesEditor from "./ProductRulesEditor";
 import styles from "./dashboard.module.css";
 
@@ -66,7 +66,7 @@ export default function WhatSold({
     }
   };
 
-  const rows = (cleaned && rules ? applyRules(products, rules) : asSold(products)).sort(
+  const rows = (cleaned && rules ? tidyNames(applyRules(products, rules)) : asSold(products)).sort(
     (a, b) => amount(b) - amount(a),
   );
   const total = rows.reduce((s, r) => s + amount(r), 0);
@@ -154,7 +154,7 @@ export default function WhatSold({
           )}
           <p className={styles.muted}>
             {cleaned
-              ? "* Renamed or combined for display; values are as sold, only counts are multiplied. "
+              ? "Names capitalised; * renamed or combined for display (values as sold, only counts multiplied). "
               : "Names as they appear on the till. "}
             Item sales add VAT line by line, so together they can be slightly off the sales total
             (about €1 a month).

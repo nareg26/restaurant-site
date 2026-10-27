@@ -47,9 +47,43 @@ export const asSold = (products: ProductTotal[]): ShownProduct[] =>
     parts: [{ product: p.product, quantity: p.quantity, multiplier: 1 }],
   }));
 
-/** Whether a row differs from the till: merged items or a multiplier. */
+/** Whether a rule changed a row: merged items, a new name or a multiplier.
+    Capitalisation alone doesn't count. */
 export const isAdjusted = (row: ShownProduct) =>
-  row.parts.length > 1 || row.parts.some((p) => p.multiplier !== 1 || p.product !== row.name);
+  row.parts.length > 1 ||
+  row.parts.some((p) => p.multiplier !== 1 || key(p.product) !== key(row.name));
+
+/* Short joining words stay lower-case inside a name ("Kombucha Pera e Maça"). */
+const SMALL_WORDS = new Set([
+  "e",
+  "de",
+  "da",
+  "do",
+  "das",
+  "dos",
+  "com",
+  "em",
+  "a",
+  "o",
+  "and",
+  "of",
+]);
+
+/** Capitalises each word for display: "pedras limão" → "Pedras Limão". Words
+    with digits ("x2", "x6") and the rest of each word are left as they are. */
+export const titleCase = (name: string) =>
+  name
+    .split(/(\s+)/)
+    .map((w, i) => {
+      if (!w.trim() || /\d/.test(w)) return w;
+      if (i > 0 && SMALL_WORDS.has(w.toLocaleLowerCase("pt"))) return w.toLocaleLowerCase("pt");
+      return w.charAt(0).toLocaleUpperCase("pt") + w.slice(1);
+    })
+    .join("");
+
+/** Rows with their names capitalised, for the cleaned list. */
+export const tidyNames = (rows: ShownProduct[]): ShownProduct[] =>
+  rows.map((r) => ({ ...r, name: titleCase(r.name) }));
 
 /** "Falafel sandwich 448 + sandes x2 59 × 2" */
 export const partsLabel = (row: ShownProduct) =>

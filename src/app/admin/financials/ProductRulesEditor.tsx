@@ -9,7 +9,7 @@ import {
   type ProductRule,
   type ProductTotal,
 } from "@/lib/fin-store";
-import { applyRules, fmtQty, isAdjusted, partsLabel } from "@/lib/fin-rules";
+import { applyRules, fmtQty, isAdjusted, partsLabel, tidyNames } from "@/lib/fin-rules";
 import styles from "./dashboard.module.css";
 
 const eur = new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" });
@@ -125,7 +125,7 @@ export default function ProductRulesEditor({
   const invalid = drafts.filter((d) => !validMultiplier(d.multiplier));
   const preview = invalid.length
     ? []
-    : applyRules(products, toRules(drafts))
+    : tidyNames(applyRules(products, toRules(drafts)))
         .filter(isAdjusted)
         .sort((a, b) => amount(b) - amount(a));
   const names = [
